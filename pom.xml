@@ -21,7 +21,8 @@
     MA 02110-1301  USA
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.everit</groupId>
@@ -51,8 +52,8 @@
         <url>https://ci.everit.biz/jenkins/job/osgi-richconsole</url>
     </ciManagement>
     <issueManagement>
-            <system>GitHub</system>
-            <url>https://github.com/everit-org/osgi-richconsole/issues</url>
+        <system>GitHub</system>
+        <url>https://github.com/everit-org/osgi-richconsole/issues</url>
     </issueManagement>
     <build>
         <plugins>
@@ -90,8 +91,8 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
-    
-       <repositories>
+
+    <repositories>
         <repository>
             <id>everit.groups.public</id>
             <name>Everit Public Repository Group</name>
