@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
 
 public class BundleDeployerFrame implements Closeable {
 
-    private BundleServiceImpl bundleServiceImpl;
+    private BundleDeployerServiceImpl bundleServiceImpl;
 
     private JFrame smallFrame;
 
@@ -63,7 +63,7 @@ public class BundleDeployerFrame implements Closeable {
 
     private static Point point = new Point();
 
-    public BundleDeployerFrame(BundleServiceImpl bundleServiceImpl) {
+    public BundleDeployerFrame(BundleDeployerServiceImpl bundleServiceImpl) {
         super();
         this.bundleServiceImpl = bundleServiceImpl;
     }
@@ -105,21 +105,9 @@ public class BundleDeployerFrame implements Closeable {
             try {
                 Method method = smallFrame.getClass().getMethod("setOpacity", float.class);
                 method.invoke(smallFrame, (float) 0.9);
-            } catch (SecurityException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            } catch (NoSuchMethodException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            } catch (IllegalArgumentException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            } catch (IllegalAccessException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            } catch (InvocationTargetException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
+            } catch (Exception e1) {
+                LOGGER.info("Opacity for frames are not supported. OSGi deployer window"
+                        + " will appear with no transparency option.");
             }
         }
 

@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -44,14 +46,13 @@ import org.osgi.util.tracker.BundleTrackerCustomizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class BundleServiceImpl implements Closeable {
-    
-    private static final Logger LOGGER = LoggerFactory.getLogger(BundleServiceImpl.class);
+public class BundleDeployerServiceImpl implements Closeable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BundleDeployerServiceImpl.class);
 
     private class Tracker extends BundleTracker {
 
-        private Map<String, List<Long>> bundleDataBySymbolicName =
-                new ConcurrentHashMap<String, List<Long>>();
+        private Map<String, List<Long>> bundleDataBySymbolicName = new ConcurrentHashMap<String, List<Long>>();
 
         public Tracker(BundleContext context, int stateMask, BundleTrackerCustomizer customizer) {
             super(context, stateMask, customizer);
@@ -84,7 +85,7 @@ public class BundleServiceImpl implements Closeable {
             return bundleDataBySymbolicName.get(symbolicName);
         }
     }
-    
+
     private static class RefreshListener implements FrameworkListener {
 
         private final AtomicBoolean refreshFinished;
@@ -124,19 +125,19 @@ public class BundleServiceImpl implements Closeable {
 
     private final Tracker tracker;
 
-    public BundleServiceImpl(Bundle consoleBundle) {
+    public BundleDeployerServiceImpl(Bundle consoleBundle) {
         this.systemBundle = consoleBundle.getBundleContext().getBundle(0);
-        this.tracker = new Tracker(consoleBundle.getBundleContext(), Bundle.ACTIVE | Bundle.INSTALLED | Bundle.RESOLVED
-                | Bundle.STARTING
-                | Bundle.STOPPING, null);
+        this.tracker =
+                new Tracker(consoleBundle.getBundleContext(), Bundle.ACTIVE | Bundle.INSTALLED | Bundle.RESOLVED
+                        | Bundle.STARTING | Bundle.STOPPING, null);
         this.tracker.open();
 
     }
 
-    private Bundle deployBundle(BundleData bundleData, File bundleFolderFile) {
-        String bundleFolder;
+    private Bundle deployBundle(BundleData bundleData, File bundleLocationFile) {
+        String bundleLocation;
         try {
-            bundleFolder = bundleFolderFile.getCanonicalFile().toURI().toURL().toExternalForm();
+            bundleLocation = bundleLocationFile.getCanonicalFile().toURI().toURL().toExternalForm();
         } catch (MalformedURLException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
@@ -161,7 +162,7 @@ public class BundleServiceImpl implements Closeable {
                 Bundle bundle = systemBundleContext.getBundle(existingBundleId);
                 String existingBundleLocation = bundle.getLocation();
 
-                if (existingBundleLocation.equals(bundleFolder)) {
+                if (existingBundleLocation.equals(bundleLocation)) {
                     selectedBundle = bundle;
                 }
 
@@ -178,7 +179,7 @@ public class BundleServiceImpl implements Closeable {
         }
 
         if (selectedBundle != null) {
-            if (selectedBundle.getLocation().equals(bundleFolder)) {
+            if (selectedBundle.getLocation().equals(bundleLocation)) {
                 try {
                     if (selectedBundle.getState() == Bundle.ACTIVE) {
                         LOGGER.info("Stopping already existing bundle " + selectedBundle.toString());
@@ -196,8 +197,8 @@ public class BundleServiceImpl implements Closeable {
                     LOGGER.info("Uninstalling Bundle " + selectedBundle.getSymbolicName() + ":"
                             + selectedBundle.getVersion().toString());
                     selectedBundle.uninstall();
-                    LOGGER.info("Installing bundle from '" + bundleFolder.toString() + "'");
-                    Bundle installedBundle = systemBundleContext.installBundle(bundleFolder);
+                    LOGGER.info("Installing bundle from '" + bundleLocation.toString() + "'");
+                    Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                     return installedBundle;
                 } catch (BundleException e) {
                     // TODO Auto-generated catch block
@@ -206,8 +207,8 @@ public class BundleServiceImpl implements Closeable {
             }
         } else {
             try {
-                LOGGER.info("Installing bundle from folder '" + bundleFolder + "'");
-                Bundle installedBundle = systemBundleContext.installBundle(bundleFolder);
+                LOGGER.info("Installing bundle from folder '" + bundleLocation + "'");
+                Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                 return installedBundle;
             } catch (BundleException e) {
                 // TODO Auto-generated catch block
@@ -217,37 +218,61 @@ public class BundleServiceImpl implements Closeable {
         return null;
     }
 
-    public void deployBundles(List<File> projectFolders) {
+    public void deployBundles(List<File> fileObjects) {
         final AtomicBoolean refreshFinished = new AtomicBoolean(false);
         FrameworkListener frameworkListener = new RefreshListener(refreshFinished);
 
         FrameworkWiring frameworkWiring = (FrameworkWiring) systemBundle.adapt(FrameworkWiring.class);
         List<Bundle> installedBundles = new ArrayList<Bundle>();
-        for (File projectFolder : projectFolders) {
-            if (projectFolder.isDirectory()) {
-                File classesFolder = new File(projectFolder, "target/classes");
-                if (!classesFolder.exists()) {
+        BundleData bundleData = null;
+
+        for (File fileObject : fileObjects) {
+            File bundleLocation = null;
+            if (fileObject.isDirectory()) {
+                bundleLocation = new File(fileObject, "target/classes");
+                if (!bundleLocation.exists()) {
                     LOGGER.warn("Hot deployment failed. There is no target/classes child folder found under "
-                            + projectFolder.getPath());
+                            + fileObject.getPath());
                     return;
                 }
-                File manifestFile = new File(classesFolder, "META-INF/MANIFEST.MF");
+                File manifestFile = new File(bundleLocation, "META-INF/MANIFEST.MF");
                 if (!manifestFile.exists()) {
                     LOGGER.warn("Hot deployment failed. Manifest file could not be found: " + manifestFile.getPath());
                     return;
                 }
-                BundleData bundleData = null;
+
                 try {
-                    bundleData = BundleUtil.readBundleDataFromManifest(manifestFile);
+                    bundleData = BundleUtil.readBundleDataFromManifestFile(manifestFile);
                 } catch (IOException e) {
-                    LOGGER.error("Could not deploy bundle from project location " + projectFolder.toString(), e);
+                    LOGGER.error("Could not deploy bundle from project location " + fileObject.toString(), e);
                     return;
                 }
-                Bundle installedBundle = deployBundle(bundleData, classesFolder);
-                if (installedBundle != null) {
-                    installedBundles.add(installedBundle);
+            } else {
+                JarFile jarFile = null;
+                try {
+                    jarFile = new JarFile(fileObject);
+                    Manifest manifest = jarFile.getManifest();
+                    bundleData = BundleUtil.readBundleDataFromManifest(manifest);
+                    bundleLocation = fileObject;
+                } catch (IOException e) {
+                    LOGGER.error("Unrecognized file type", e);
+                    return;
+                } finally {
+                    if (jarFile != null) {
+                        try {
+                            jarFile.close();
+                        } catch (IOException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                    }
                 }
+                
+            }
 
+            Bundle installedBundle = deployBundle(bundleData, bundleLocation);
+            if (installedBundle != null) {
+                installedBundles.add(installedBundle);
             }
         }
 

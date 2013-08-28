@@ -30,7 +30,7 @@ public class Activator implements BundleActivator {
 
     private BundleDeployerFrame bundleManager = null;
 
-    private BundleServiceImpl bundleService;
+    private BundleDeployerServiceImpl bundleService;
 
     @Override
     public void start(BundleContext context) throws Exception {
@@ -39,7 +39,7 @@ public class Activator implements BundleActivator {
             return;
         }
         if (!GraphicsEnvironment.isHeadless()) {
-            bundleService = new BundleServiceImpl(context.getBundle());
+            bundleService = new BundleDeployerServiceImpl(context.getBundle());
             bundleManager = new BundleDeployerFrame(bundleService);
             bundleManager.start();
         }

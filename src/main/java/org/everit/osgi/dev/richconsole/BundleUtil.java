@@ -34,16 +34,12 @@ import org.slf4j.LoggerFactory;
 public class BundleUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BundleUtil.class);
-    
-    public static BundleData readBundleDataFromManifest(File manifestFile) throws IOException {
+
+    public static BundleData readBundleDataFromManifestFile(File manifestFile) throws IOException {
         FileInputStream manifestIS = null;
         try {
             manifestIS = new FileInputStream(manifestFile);
-            Manifest manifest = new Manifest(manifestIS);
-            Attributes mainAttributes = manifest.getMainAttributes();
-            String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
-            String version = mainAttributes.getValue("Bundle-Version");
-            return new BundleData(symbolicName, version);
+            return readBundleDataFromManifest(new Manifest(manifestIS));
         } finally {
             if (manifestIS != null) {
                 try {
@@ -53,6 +49,13 @@ public class BundleUtil {
                 }
             }
         }
+    }
+
+    public static BundleData readBundleDataFromManifest(Manifest manifest) {
+        Attributes mainAttributes = manifest.getMainAttributes();
+        String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
+        String version = mainAttributes.getValue("Bundle-Version");
+        return new BundleData(symbolicName, version);
     }
 
     public static String convertFrameworkEventTypeCode(int code) {
