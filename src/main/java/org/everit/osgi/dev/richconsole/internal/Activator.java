@@ -1,4 +1,4 @@
-package org.everit.osgi.dev.richconsole;
+package org.everit.osgi.dev.richconsole.internal;
 
 /*
  * Copyright (c) 2011, Everit Kft.
@@ -41,7 +41,7 @@ public class Activator implements BundleActivator {
         if (!GraphicsEnvironment.isHeadless()) {
             bundleService = new BundleDeployerServiceImpl(context.getBundle());
             bundleManager = new BundleDeployerFrame(bundleService);
-            bundleManager.start();
+            bundleManager.start(context);
         }
     }
 

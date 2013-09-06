@@ -1,4 +1,4 @@
-package org.everit.osgi.dev.richconsole;
+package org.everit.osgi.dev.richconsole.internal;
 
 /*
  * Copyright (c) 2011, Everit Kft.
@@ -40,7 +40,6 @@ import java.awt.event.MouseMotionAdapter;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.List;
@@ -50,12 +49,15 @@ import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
+import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BundleDeployerFrame implements Closeable {
 
     private BundleDeployerServiceImpl bundleServiceImpl;
+    
+    private MenuItemTrackerImpl menuItemTracker;
 
     private JFrame smallFrame;
 
@@ -64,11 +66,10 @@ public class BundleDeployerFrame implements Closeable {
     private static Point point = new Point();
 
     public BundleDeployerFrame(BundleDeployerServiceImpl bundleServiceImpl) {
-        super();
         this.bundleServiceImpl = bundleServiceImpl;
     }
 
-    public void start() {
+    public void start(BundleContext context) {
         URL imageResource = this.getClass().getResource("/images/everit_OSGi_deployer.png");
         Image backgroundImage = null;
         try {
@@ -185,11 +186,15 @@ public class BundleDeployerFrame implements Closeable {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         }
+        
+        menuItemTracker = new MenuItemTrackerImpl(panel, context);
+        menuItemTracker.start();
         smallFrame.setVisible(true);
     }
 
     @Override
     public void close() {
+        menuItemTracker.stop();
         smallFrame.dispose();
     }
 }

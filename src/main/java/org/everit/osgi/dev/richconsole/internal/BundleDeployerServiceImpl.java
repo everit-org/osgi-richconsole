@@ -1,4 +1,4 @@
-package org.everit.osgi.dev.richconsole;
+package org.everit.osgi.dev.richconsole.internal;
 
 /*
  * Copyright (c) 2011, Everit Kft.
@@ -42,7 +42,6 @@ import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.FrameworkListener;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.util.tracker.BundleTracker;
-import org.osgi.util.tracker.BundleTrackerCustomizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,16 +49,16 @@ public class BundleDeployerServiceImpl implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BundleDeployerServiceImpl.class);
 
-    private class Tracker extends BundleTracker {
+    private class Tracker extends BundleTracker<Bundle> {
 
         private Map<String, List<Long>> bundleDataBySymbolicName = new ConcurrentHashMap<String, List<Long>>();
 
-        public Tracker(BundleContext context, int stateMask, BundleTrackerCustomizer customizer) {
-            super(context, stateMask, customizer);
+        public Tracker(BundleContext context, int stateMask) {
+            super(context, stateMask, null);
         }
 
         @Override
-        public Object addingBundle(Bundle bundle, BundleEvent event) {
+        public Bundle addingBundle(Bundle bundle, BundleEvent event) {
             String symbolicName = bundle.getSymbolicName();
             List<Long> bundleIdList = bundleDataBySymbolicName.get(symbolicName);
             if (bundleIdList == null) {
@@ -71,7 +70,7 @@ public class BundleDeployerServiceImpl implements Closeable {
         }
 
         @Override
-        public void removedBundle(Bundle bundle, BundleEvent event, Object object) {
+        public void removedBundle(Bundle bundle, BundleEvent event, Bundle object) {
             super.remove(bundle);
             String symbolicName = bundle.getSymbolicName();
             List<Long> list = bundleDataBySymbolicName.get(symbolicName);
@@ -129,7 +128,7 @@ public class BundleDeployerServiceImpl implements Closeable {
         this.systemBundle = consoleBundle.getBundleContext().getBundle(0);
         this.tracker =
                 new Tracker(consoleBundle.getBundleContext(), Bundle.ACTIVE | Bundle.INSTALLED | Bundle.RESOLVED
-                        | Bundle.STARTING | Bundle.STOPPING, null);
+                        | Bundle.STARTING | Bundle.STOPPING);
         this.tracker.open();
 
     }

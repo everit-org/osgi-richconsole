@@ -1,4 +1,4 @@
-package org.everit.osgi.dev.richconsole;
+package org.everit.osgi.dev.richconsole.internal;
 
 /*
  * Copyright (c) 2011, Everit Kft.
