@@ -31,11 +31,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
+import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
+import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.everit.osgi.dev.richconsole.MenuItemService;
+import org.everit.osgi.dev.richconsole.internal.settings.SettingsFrame;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
@@ -51,10 +55,28 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
 
     private final BundleContext context;
 
+    private final ConfigStore configStore;
+
     private Map<ServiceReference<MenuItemService>, JMenuItem> menuItemByService =
             new HashMap<ServiceReference<MenuItemService>, JMenuItem>();
 
     public MenuItemTrackerImpl(final JPanel origin, final BundleContext context) {
+        this.configStore = new ConfigStoreImpl(context);
+        configStore.addPropertyChangeListener(new ConfigPropertyChangeListener() {
+            
+            @Override
+            public void propertyChanged(String key, String value) {
+                System.out.println("Prop changed" + value);
+                if (SettingsFrame.DEPLOYER_WINDOW_LABEL.equals(key)) {
+                    if (value != null && !value.trim().equals("")) {
+                        JLabel label = new JLabel(value);
+                        label.setText(value);
+                        origin.add(label);
+                    }
+                }
+            }
+        });
+
         menuItemServiceTracker =
                 new ServiceTracker<MenuItemService, MenuItemService>(context, MenuItemService.class, this);
         popupMenu = new JPopupMenu();
@@ -82,15 +104,16 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
 
     @Override
     public MenuItemService addingService(ServiceReference<MenuItemService> reference) {
+        System.out.println("MENUITEMSERVICE caughed");
         final MenuItemService menuItemService = context.getService(reference);
-        String label = menuItemService.getLabel(locale);
+        String label = menuItemService.getLabel();
         JMenuItem menuItem = new JMenuItem(label);
 
         menuItem.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                menuItemService.itemFired(locale);
+                menuItemService.itemFired(configStore);
             }
         });
         popupMenu.add(menuItem);
@@ -116,7 +139,7 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
             for (Entry<ServiceReference<MenuItemService>, JMenuItem> entry : menuItemByService.entrySet()) {
                 ServiceReference<MenuItemService> reference = entry.getKey();
                 MenuItemService itemService = menuItemServiceTracker.getService(reference);
-                String label = itemService.getLabel(locale);
+                String label = itemService.getLabel();
                 JMenuItem menuItem = entry.getValue();
                 menuItem.setText(label);
 

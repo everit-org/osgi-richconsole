@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
 public class BundleDeployerFrame implements Closeable {
 
     private BundleDeployerServiceImpl bundleServiceImpl;
-    
+
     private MenuItemTrackerImpl menuItemTracker;
 
     private JFrame smallFrame;
@@ -85,17 +85,17 @@ public class BundleDeployerFrame implements Closeable {
         smallFrame.setUndecorated(true);
         final int panelWidth = 200;
         final int panelHeight = 56;
-        
+
         smallFrame.setSize(panelWidth, panelHeight);
-        
+
         JPanel panel = new JPanel() {
             @Override
             public void paintComponent(Graphics g) {
-                g.drawImage(finalImage, 1, 1, panelWidth - 2, panelHeight - 2, 0, 0,
-                        finalImage.getWidth(smallFrame), finalImage.getHeight(smallFrame), smallFrame);
+                g.drawImage(finalImage, 1, 1, panelWidth - 2, panelHeight - 2, 0, 0, finalImage.getWidth(smallFrame),
+                        finalImage.getHeight(smallFrame), smallFrame);
                 g.setColor(Color.BLACK);
                 g.drawRect(0, 0, panelWidth - 1, panelHeight - 1);
-            } 
+            }
         };
         panel.setSize(panelWidth, panelHeight);
         smallFrame.add(panel);
@@ -126,8 +126,7 @@ public class BundleDeployerFrame implements Closeable {
         panel.addMouseMotionListener(new MouseMotionAdapter() {
             public void mouseDragged(MouseEvent e) {
                 Point p = smallFrame.getLocation();
-                smallFrame.setLocation(p.x + e.getX() - point.x,
-                        p.y + e.getY() - point.y);
+                smallFrame.setLocation(p.x + e.getX() - point.x, p.y + e.getY() - point.y);
             }
         });
 
@@ -168,8 +167,8 @@ public class BundleDeployerFrame implements Closeable {
                         }
 
                     } else {
-                        LOGGER.warn("No supported format found in dropped content. " +
-                        		"Supported format is 'File List Type'");
+                        LOGGER.warn("No supported format found in dropped content. "
+                                + "Supported format is 'File List Type'");
                     }
                 }
 
@@ -186,7 +185,7 @@ public class BundleDeployerFrame implements Closeable {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         }
-        
+
         menuItemTracker = new MenuItemTrackerImpl(panel, context);
         menuItemTracker.start();
         smallFrame.setVisible(true);

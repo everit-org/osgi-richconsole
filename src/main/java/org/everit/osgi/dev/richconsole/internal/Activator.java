@@ -22,15 +22,23 @@ package org.everit.osgi.dev.richconsole.internal;
  */
 
 import java.awt.GraphicsEnvironment;
+import java.util.Hashtable;
 
+import org.everit.osgi.dev.richconsole.MenuItemService;
+import org.everit.osgi.dev.richconsole.internal.settings.SettingsMenuItemServiceImpl;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.ServiceRegistration;
 
 public class Activator implements BundleActivator {
 
     private BundleDeployerFrame bundleManager = null;
 
     private BundleDeployerServiceImpl bundleService;
+
+    private ServiceRegistration<MenuItemService> settingsServiceRegistration;
+
+    private SettingsMenuItemServiceImpl settingsMenuItemService;
 
     @Override
     public void start(BundleContext context) throws Exception {
@@ -42,17 +50,31 @@ public class Activator implements BundleActivator {
             bundleService = new BundleDeployerServiceImpl(context.getBundle());
             bundleManager = new BundleDeployerFrame(bundleService);
             bundleManager.start(context);
+            settingsMenuItemService = new SettingsMenuItemServiceImpl();
+            settingsServiceRegistration =
+                    context.registerService(MenuItemService.class, settingsMenuItemService,
+                            new Hashtable<String, Object>());
+
         }
     }
 
     @Override
     public void stop(BundleContext context) throws Exception {
+        if (settingsMenuItemService != null) {
+            settingsMenuItemService.close();
+        }
+
+        if (settingsServiceRegistration != null) {
+            settingsServiceRegistration.unregister();
+        }
+
         if (bundleManager != null) {
             bundleManager.close();
         }
         if (bundleService != null) {
             bundleService.close();
         }
+
     }
 
 }

@@ -21,19 +21,15 @@ package org.everit.osgi.dev.richconsole;
  * MA 02110-1301  USA
  */
 
+public interface ConfigStore {
+    
+    void addPropertyChangeListener(ConfigPropertyChangeListener listener);
+    
+    void removePropertyChangeListener(ConfigPropertyChangeListener listener);
 
-/**
- * In case someone wants to extend the richconsole with new functionality an OSGi service should be provided with this
- * interface. By clicking on the deployer window, a context menu will appear that will contain each MenuItem service.
- */
-public interface MenuItemService {
-
-    /**
-     * Providing the label that will appear on the menu item.
-     * 
-     * @return The label that appears on the menu item.
-     */
-    String getLabel();
-
-    void itemFired(ConfigStore configStore);
+    String getProperty(String key);
+    
+    void setProperty(String key, String value);
+    
+    void persist();
 }
