@@ -37,7 +37,7 @@ public class SettingsMenuItemServiceImpl implements MenuItemService {
 
     @Override
     public String getLabel() {
-        return "Global";
+        return "Main options";
     }
 
     @Override

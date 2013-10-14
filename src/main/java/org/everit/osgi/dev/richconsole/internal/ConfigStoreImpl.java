@@ -23,6 +23,7 @@ package org.everit.osgi.dev.richconsole.internal;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,11 +34,16 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.everit.osgi.dev.richconsole.ConfigStore;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+
 import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
+import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.osgi.framework.BundleContext;
 
 public class ConfigStoreImpl implements ConfigStore {
+    
+    private static final String DEFAULT_SETTINGS_FILE_NAME = "richConsoleSettings.properties";
 
     private List<ConfigPropertyChangeListener> listeners = new ArrayList<ConfigPropertyChangeListener>();
     
@@ -48,10 +54,40 @@ public class ConfigStoreImpl implements ConfigStore {
     private ReadWriteLock propertiesLocker = new ReentrantReadWriteLock(false);
 
     private Properties properties = new Properties();
+    
+    private final File settingsFile;
 
     
     public ConfigStoreImpl(BundleContext richConsoleContext) {
         this.richConsoleContext = richConsoleContext;
+        String settingsFilePathSysProp = System.getProperty(ConfigStore.SYSPROP_SETTINGS_FILE_PATH);
+        if (settingsFilePathSysProp == null) {
+            settingsFile = richConsoleContext.getDataFile(DEFAULT_SETTINGS_FILE_NAME);
+        } else {
+            settingsFile = new File(settingsFilePathSysProp);
+        }
+        if (settingsFile.exists()) {
+            FileInputStream fin = null;
+            try {
+                fin = new FileInputStream(settingsFile);
+                properties.load(fin);
+            } catch (FileNotFoundException e) {
+                // TODO
+                e.printStackTrace();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } finally {
+                if (fin != null) {
+                    try {
+                        fin.close();
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -83,13 +119,10 @@ public class ConfigStoreImpl implements ConfigStore {
         }
     }
 
-    @Override
     public void persist() {
-        File dataFile = richConsoleContext.getDataFile("richConsoleSettings.properties");
-        System.out.println("DataFile: " + dataFile.toString());
         FileOutputStream fout = null;
         try {
-            fout = new FileOutputStream(dataFile);
+            fout = new FileOutputStream(settingsFile);
             properties.store(fout, null);
         } catch (IOException e) {
             e.printStackTrace();
@@ -121,5 +154,9 @@ public class ConfigStoreImpl implements ConfigStore {
         listeners.remove(listener);
         writeLock.unlock();
     }
-
+    
+    @Override
+    public String getSettingsFilePath() {        
+        return settingsFile.getAbsolutePath();
+    }
 }

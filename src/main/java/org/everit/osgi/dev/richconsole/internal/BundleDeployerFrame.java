@@ -30,10 +30,9 @@ import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
+import java.awt.dnd.DropTargetAdapter;
 import java.awt.dnd.DropTargetDragEvent;
 import java.awt.dnd.DropTargetDropEvent;
-import java.awt.dnd.DropTargetEvent;
-import java.awt.dnd.DropTargetListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
@@ -47,19 +46,25 @@ import java.util.TooManyListenersException;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
+import org.everit.osgi.dev.richconsole.ConfigStore;
+import org.everit.osgi.dev.richconsole.internal.settings.SettingsFrame;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class BundleDeployerFrame implements Closeable {
+public class BundleDeployerFrame implements MainFrame, Closeable {
 
     private BundleDeployerServiceImpl bundleServiceImpl;
 
     private MenuItemTrackerImpl menuItemTracker;
 
     private JFrame smallFrame;
+    
+    private ConfigStore configStore;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BundleDeployerFrame.class);
 
@@ -71,6 +76,8 @@ public class BundleDeployerFrame implements Closeable {
 
     public void start(BundleContext context) {
         URL imageResource = this.getClass().getResource("/images/everit_OSGi_deployer.png");
+        configStore = new ConfigStoreImpl(context);
+        
         Image backgroundImage = null;
         try {
             backgroundImage = ImageIO.read(imageResource);
@@ -100,6 +107,22 @@ public class BundleDeployerFrame implements Closeable {
         panel.setSize(panelWidth, panelHeight);
         smallFrame.add(panel);
 
+        final JLabel jlabel = new JLabel();
+        panel.add(jlabel);
+        String label = configStore.getProperty(SettingsFrame.DEPLOYER_WINDOW_LABEL);
+        if (label != null) {
+            jlabel.setText(label);
+        }
+        configStore.addPropertyChangeListener(new ConfigPropertyChangeListener() {
+            
+            @Override
+            public void propertyChanged(String key, String value) {
+                if (SettingsFrame.DEPLOYER_WINDOW_LABEL.equals(key)) {
+                    jlabel.setText(value);
+                }
+            }
+        });
+
         String javaSpecVersion = System.getProperty("java.vm.specification.version");
 
         if ("1.6".compareTo(javaSpecVersion) < 0) {
@@ -118,22 +141,23 @@ public class BundleDeployerFrame implements Closeable {
         //
         panel.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
-                point.x = e.getX();
-                point.y = e.getY();
+                Point location = smallFrame.getLocation();
+                point.x = e.getXOnScreen() - (int) location.getX();
+                point.y = e.getYOnScreen() - (int) location.getY();
             }
         });
 
         panel.addMouseMotionListener(new MouseMotionAdapter() {
             public void mouseDragged(MouseEvent e) {
                 Point p = smallFrame.getLocation();
-                smallFrame.setLocation(p.x + e.getX() - point.x, p.y + e.getY() - point.y);
+                smallFrame.setLocation(e.getXOnScreen() - point.x, e.getYOnScreen() - point.y);
             }
         });
 
         DropTarget dropTarget = new DropTarget();
         panel.setDropTarget(dropTarget);
         try {
-            dropTarget.addDropTargetListener(new DropTargetListener() {
+            dropTarget.addDropTargetListener(new DropTargetAdapter()  {
 
                 public void dropActionChanged(DropTargetDragEvent dtde) {
                     System.out.println("dropActionChanged: " + dtde.toString());
@@ -171,22 +195,13 @@ public class BundleDeployerFrame implements Closeable {
                                 + "Supported format is 'File List Type'");
                     }
                 }
-
-                public void dragOver(DropTargetDragEvent dtde) {
-                }
-
-                public void dragExit(DropTargetEvent dte) {
-                }
-
-                public void dragEnter(DropTargetDragEvent dtde) {
-                }
             });
         } catch (TooManyListenersException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         }
 
-        menuItemTracker = new MenuItemTrackerImpl(panel, context);
+        menuItemTracker = new MenuItemTrackerImpl(this, panel, context);
         menuItemTracker.start();
         smallFrame.setVisible(true);
     }
@@ -195,5 +210,10 @@ public class BundleDeployerFrame implements Closeable {
     public void close() {
         menuItemTracker.stop();
         smallFrame.dispose();
+    }
+
+    @Override
+    public ConfigStore getConfigStore() {
+        return configStore;
     }
 }

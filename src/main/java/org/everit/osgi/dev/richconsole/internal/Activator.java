@@ -54,7 +54,6 @@ public class Activator implements BundleActivator {
             settingsServiceRegistration =
                     context.registerService(MenuItemService.class, settingsMenuItemService,
                             new Hashtable<String, Object>());
-
         }
     }
 
