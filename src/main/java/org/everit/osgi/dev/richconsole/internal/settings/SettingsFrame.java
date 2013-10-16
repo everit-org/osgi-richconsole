@@ -22,7 +22,11 @@ package org.everit.osgi.dev.richconsole.internal.settings;
  */
 
 import java.awt.EventQueue;
-import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -32,36 +36,13 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
 import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.everit.osgi.dev.richconsole.internal.ConfigStoreImpl;
-
-import javax.swing.JInternalFrame;
-import javax.swing.GroupLayout;
-import javax.swing.GroupLayout.Alignment;
-import javax.swing.BoxLayout;
-
-import java.awt.BorderLayout;
-import java.awt.GridLayout;
-
-import javax.swing.border.BevelBorder;
-import javax.swing.JTabbedPane;
-
-import java.awt.GridBagLayout;
-import java.awt.GridBagConstraints;
-import java.awt.Insets;
-
-import javax.swing.SwingConstants;
-import javax.swing.JTextPane;
-
-import com.jgoodies.forms.layout.FormLayout;
-import com.jgoodies.forms.layout.ColumnSpec;
-import com.jgoodies.forms.layout.RowSpec;
-import com.jgoodies.forms.factories.FormFactory;
-
-import java.awt.Font;
 
 public class SettingsFrame extends JFrame {
 
