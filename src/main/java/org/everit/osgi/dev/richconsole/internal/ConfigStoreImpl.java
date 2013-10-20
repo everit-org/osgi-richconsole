@@ -124,6 +124,7 @@ public class ConfigStoreImpl implements ConfigStore {
         properties.setProperty(key, value);
 
         Lock listenerReadLock = listenerLocker.readLock();
+        persist();
         listenerReadLock.lock();
         Iterator<ConfigPropertyChangeListener> iterator = listeners.iterator();
         try {
@@ -185,6 +186,7 @@ public class ConfigStoreImpl implements ConfigStore {
                 }
                 properties.put(newEntryKey, newEntry.getValue());
             }
+            persist();
 
             Lock listenerReadLock = listenerLocker.readLock();
             listenerReadLock.lock();
