@@ -22,6 +22,7 @@ package org.everit.osgi.dev.richconsole.internal.settings;
  */
 
 import java.awt.EventQueue;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -29,6 +30,7 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -41,15 +43,24 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
+import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
 import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.everit.osgi.dev.richconsole.internal.ConfigStoreImpl;
 
 public class SettingsFrame extends JFrame {
 
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 1L;
+
     public static final String DEPLOYER_WINDOW_LABEL = "DEPLOYER_WINDOW_LABEL";
+
     private JPanel contentPane;
+
     private JTextField labelTextField;
-    private JTextField textField;
+
+    private JTextField settingsFilePathTextField;
 
     /**
      * Launch the application.
@@ -82,49 +93,63 @@ public class SettingsFrame extends JFrame {
         JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
         contentPane.add(tabbedPane);
 
-        JPanel panel_2 = new JPanel();
-        tabbedPane.addTab("Decoration", null, panel_2, null);
+        JPanel decorationPanel = new JPanel();
+        FlowLayout fl_decorationPanel = (FlowLayout) decorationPanel.getLayout();
+        fl_decorationPanel.setVgap(10);
+        fl_decorationPanel.setHgap(10);
+        fl_decorationPanel.setAlignment(FlowLayout.LEFT);
+        tabbedPane.addTab("Decoration", null, decorationPanel, null);
 
-        JLabel lblLabel = new JLabel("Label");
-        panel_2.add(lblLabel);
+        JLabel lblLabel = new JLabel("Deployer window label");
+        decorationPanel.add(lblLabel);
 
         labelTextField = new JTextField();
-        panel_2.add(labelTextField);
+        decorationPanel.add(labelTextField);
         labelTextField.setColumns(6);
+        configStore.addPropertyChangeListener(new ConfigPropertyChangeListener() {
+            
+            @Override
+            public void propertyChanged(String key, String value) {
+                if (key.equals(DEPLOYER_WINDOW_LABEL)) {
+                    System.out.println("////// SETtING " + value);
+                    labelTextField.setText(value);
+                }
+            }
+        });
 
         JButton btnStore = new JButton("Apply");
-        panel_2.add(btnStore);
+        decorationPanel.add(btnStore);
 
-        final JPanel panel_1 = new JPanel();
-        panel_1.setToolTipText("");
-        tabbedPane.addTab("Store", null, panel_1, null);
-        GridBagLayout gbl_panel_1 = new GridBagLayout();
-        gbl_panel_1.columnWidths = new int[] { 140, 0, 0 };
-        gbl_panel_1.rowHeights = new int[] { 0, 0, 0, 0, 0 };
-        gbl_panel_1.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
-        gbl_panel_1.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
-        panel_1.setLayout(gbl_panel_1);
+        final JPanel storePanel = new JPanel();
+        storePanel.setToolTipText("");
+        tabbedPane.addTab("Store", null, storePanel, null);
+        GridBagLayout gbl_storePanel = new GridBagLayout();
+        gbl_storePanel.columnWidths = new int[] { 140, 0, 0 };
+        gbl_storePanel.rowHeights = new int[] { 0, 0, 0, 0, 0 };
+        gbl_storePanel.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
+        gbl_storePanel.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
+        storePanel.setLayout(gbl_storePanel);
 
         JLabel lblNewLabel = new JLabel("Settings file path");
         lblNewLabel.setHorizontalAlignment(SwingConstants.LEFT);
         GridBagConstraints gbc_lblNewLabel = new GridBagConstraints();
         gbc_lblNewLabel.anchor = GridBagConstraints.WEST;
-        gbc_lblNewLabel.insets = new Insets(0, 0, 5, 5);
+        gbc_lblNewLabel.insets = new Insets(5, 5, 5, 5);
         gbc_lblNewLabel.gridx = 0;
         gbc_lblNewLabel.gridy = 1;
-        panel_1.add(lblNewLabel, gbc_lblNewLabel);
+        storePanel.add(lblNewLabel, gbc_lblNewLabel);
 
-        textField = new JTextField();
-        textField.setEditable(false);
-        textField
-                .setToolTipText("You can change this value by setting the org.everit.osgi.dev.richconsole.SettingsFile system property");
-        GridBagConstraints gbc_textField = new GridBagConstraints();
-        gbc_textField.insets = new Insets(0, 0, 5, 0);
-        gbc_textField.fill = GridBagConstraints.HORIZONTAL;
-        gbc_textField.gridx = 1;
-        gbc_textField.gridy = 1;
-        panel_1.add(textField, gbc_textField);
-        textField.setColumns(18);
+        settingsFilePathTextField = new JTextField();
+        settingsFilePathTextField.setEditable(false);
+        settingsFilePathTextField.setText(configStore.getSettingsFilePath());
+
+        GridBagConstraints gbc_settingsFilePathTextField = new GridBagConstraints();
+        gbc_settingsFilePathTextField.insets = new Insets(0, 0, 5, 0);
+        gbc_settingsFilePathTextField.fill = GridBagConstraints.HORIZONTAL;
+        gbc_settingsFilePathTextField.gridx = 1;
+        gbc_settingsFilePathTextField.gridy = 1;
+        storePanel.add(settingsFilePathTextField, gbc_settingsFilePathTextField);
+        settingsFilePathTextField.setColumns(18);
 
         JLabel lblNewLabel_1 =
                 new JLabel(
@@ -136,35 +161,48 @@ public class SettingsFrame extends JFrame {
         gbc_lblNewLabel_1.anchor = GridBagConstraints.NORTHWEST;
         gbc_lblNewLabel_1.gridx = 1;
         gbc_lblNewLabel_1.gridy = 2;
-        panel_1.add(lblNewLabel_1, gbc_lblNewLabel_1);
+        storePanel.add(lblNewLabel_1, gbc_lblNewLabel_1);
 
         JPanel panel = new JPanel();
         GridBagConstraints gbc_panel = new GridBagConstraints();
         gbc_panel.fill = GridBagConstraints.BOTH;
         gbc_panel.gridx = 1;
         gbc_panel.gridy = 3;
-        panel_1.add(panel, gbc_panel);
+        storePanel.add(panel, gbc_panel);
 
         JButton btnImport = new JButton("Import...");
         btnImport.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 JFileChooser jFileChooser = new JFileChooser();
-                int fileDialogResult = jFileChooser.showOpenDialog(panel_1);
+                int fileDialogResult = jFileChooser.showOpenDialog(storePanel);
                 if (fileDialogResult == JFileChooser.APPROVE_OPTION) {
-                    int clearResult = JOptionPane.showOptionDialog(panel_1,
-                            "Do you want to clear current configuration before importing?", "Question",
-                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
+                    int clearResult =
+                            JOptionPane.showOptionDialog(storePanel,
+                                    "Do you want to clear current configuration before importing?", "Question",
+                                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
 
-                    if (clearResult == JOptionPane.YES_OPTION) {
-                        
-                    }
+                    File selectedFile = jFileChooser.getSelectedFile();
+
+                    ConfigStoreImpl configStoreImpl = (ConfigStoreImpl) configStore;
+                    configStoreImpl.importFromFile(selectedFile, clearResult == JOptionPane.YES_OPTION);
                 }
-
             }
         });
         panel.add(btnImport);
 
         JButton btnExport = new JButton("Export...");
+        btnExport.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser jFileChooser = new JFileChooser();
+                int fileDialogResult = jFileChooser.showSaveDialog(storePanel);
+                if (fileDialogResult == JFileChooser.APPROVE_OPTION) {
+                    File selectedFile = jFileChooser.getSelectedFile();
+
+                    ConfigStoreImpl configStoreImpl = (ConfigStoreImpl) configStore;
+                    configStoreImpl.exportToFile(selectedFile);
+                }
+            }
+        });
         panel.add(btnExport);
         btnStore.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {

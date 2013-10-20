@@ -27,39 +27,39 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import javax.swing.JDialog;
-import javax.swing.JOptionPane;
 
 import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
 import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.osgi.framework.BundleContext;
 
 public class ConfigStoreImpl implements ConfigStore {
-    
+
+    private static final String SETTINGS_FILE_COMMENT = "Settings file of EOSGi Richconsole";
+
     private static final String DEFAULT_SETTINGS_FILE_NAME = "richConsoleSettings.properties";
 
     private List<ConfigPropertyChangeListener> listeners = new ArrayList<ConfigPropertyChangeListener>();
-    
-    private final BundleContext richConsoleContext;
 
     private ReadWriteLock listenerLocker = new ReentrantReadWriteLock(false);
 
     private ReadWriteLock propertiesLocker = new ReentrantReadWriteLock(false);
 
     private Properties properties = new Properties();
-    
+
     private final File settingsFile;
 
-    
     public ConfigStoreImpl(BundleContext richConsoleContext) {
-        this.richConsoleContext = richConsoleContext;
         String settingsFilePathSysProp = System.getProperty(ConfigStore.SYSPROP_SETTINGS_FILE_PATH);
         if (settingsFilePathSysProp == null) {
             settingsFile = richConsoleContext.getDataFile(DEFAULT_SETTINGS_FILE_NAME);
@@ -83,6 +83,24 @@ public class ConfigStoreImpl implements ConfigStore {
                         fin.close();
                     } catch (IOException e) {
                         // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+            }
+        } else {
+            File parentFile = settingsFile.getParentFile();
+            parentFile.mkdirs();
+            FileOutputStream fout = null;
+            try {
+                fout = new FileOutputStream(settingsFile);
+                properties.store(fout, SETTINGS_FILE_COMMENT);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                if (fout != null) {
+                    try {
+                        fout.close();
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
@@ -136,7 +154,73 @@ public class ConfigStoreImpl implements ConfigStore {
                 }
             }
         }
-        
+    }
+
+    public void importFromFile(File file, boolean cleanImport) {
+        Lock writeLock = propertiesLocker.writeLock();
+        writeLock.lock();
+
+        Set<Object> droppedProperties = new HashSet<Object>(properties.keySet());
+        Map<Object, Object> modifiedProperties = new HashMap<Object, Object>();
+        Map<Object, Object> addedProperties = new HashMap<Object, Object>();
+
+        FileInputStream fin = null;
+        try {
+            fin = new FileInputStream(file);
+            Properties newProperties = new Properties();
+            newProperties.load(fin);
+
+            if (cleanImport) {
+                properties.clear();
+            }
+
+            for (Entry<Object, Object> newEntry : newProperties.entrySet()) {
+                boolean modified = droppedProperties.remove(newEntry.getKey());
+                Object newEntryKey = newEntry.getKey();
+                Object newEntryValue = newEntry.getValue();
+                if (modified) {
+                    modifiedProperties.put(newEntryKey, newEntryValue);
+                } else {
+                    addedProperties.put(newEntryKey, newEntryValue);
+                }
+                properties.put(newEntryKey, newEntry.getValue());
+            }
+
+            Lock listenerReadLock = listenerLocker.readLock();
+            listenerReadLock.lock();
+
+            for (ConfigPropertyChangeListener listener : listeners) {
+                for (Entry<Object, Object> addedProperty : addedProperties.entrySet()) {
+                    try {
+                        listener.propertyChanged((String) addedProperty.getKey(), (String) addedProperty.getValue());
+                    } catch (RuntimeException e) {
+                        e.printStackTrace();
+                    }
+                }
+                for (Object droppedProperty : droppedProperties) {
+                    try {
+                        listener.propertyChanged((String) droppedProperty, null);
+                    } catch (RuntimeException e) {
+                        e.printStackTrace();
+                    }
+                }
+                for (Entry<Object, Object> entry : modifiedProperties.entrySet()) {
+                    try {
+                        listener.propertyChanged((String) entry.getKey(), (String) entry.getValue());
+                    } catch (RuntimeException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            listenerReadLock.unlock();
+
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } finally {
+            writeLock.unlock();
+        }
+
     }
 
     @Override
@@ -154,9 +238,24 @@ public class ConfigStoreImpl implements ConfigStore {
         listeners.remove(listener);
         writeLock.unlock();
     }
-    
+
+    public void exportToFile(File file) {
+        Lock readLock = propertiesLocker.readLock();
+        readLock.lock();
+        FileOutputStream fout = null;
+        try {
+            fout = new FileOutputStream(file);
+            properties.store(fout, SETTINGS_FILE_COMMENT);
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } finally {
+            readLock.unlock();
+        }
+    }
+
     @Override
-    public String getSettingsFilePath() {        
+    public String getSettingsFilePath() {
         return settingsFile.getAbsolutePath();
     }
 }
