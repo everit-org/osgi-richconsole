@@ -24,10 +24,16 @@ package org.everit.osgi.dev.richconsole.internal;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
 import org.osgi.framework.FrameworkEvent;
+import org.osgi.framework.FrameworkListener;
+import org.osgi.framework.startlevel.FrameworkStartLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,5 +90,39 @@ public class BundleUtil {
             break;
         }
         return String.valueOf(code);
+    }
+
+    public static String getBundleLocationByFile(File file) throws IOException {
+        return file.getCanonicalFile().toURI().toString();
+    }
+
+    public static void setFrameworkStartLevel(FrameworkStartLevel frameworkStartLevel, int startLevel) {
+        final AtomicBoolean startLevelReached = new AtomicBoolean(false);
+        final Lock lock = new ReentrantLock();
+        final Condition startLevelReachedCondition = lock.newCondition();
+
+        frameworkStartLevel.setStartLevel(startLevel, new FrameworkListener() {
+
+            @Override
+            public void frameworkEvent(FrameworkEvent event) {
+                lock.lock();
+                int eventType = event.getType();
+                if (eventType == FrameworkEvent.STARTLEVEL_CHANGED || eventType == FrameworkEvent.ERROR) {
+                    startLevelReached.set(true);
+                }
+                lock.unlock();
+            }
+        });
+        lock.lock();
+        try {
+            while (!startLevelReached.get()) {
+                startLevelReachedCondition.await();
+            }
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+        }
     }
 }

@@ -24,13 +24,19 @@ package org.everit.osgi.dev.richconsole.internal;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
@@ -38,8 +44,12 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
 import org.osgi.framework.BundleException;
+import org.osgi.framework.Constants;
 import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.FrameworkListener;
+import org.osgi.framework.startlevel.BundleStartLevel;
+import org.osgi.framework.startlevel.FrameworkStartLevel;
+import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.util.tracker.BundleTracker;
 import org.slf4j.Logger;
@@ -89,18 +99,29 @@ public class BundleDeployerServiceImpl implements Closeable {
 
         private final AtomicBoolean refreshFinished;
 
-        public RefreshListener(AtomicBoolean refreshFinished) {
-            super();
+        private final Lock refreshFinishLock;
+
+        private final Condition refreshFinishCondition;
+
+        public RefreshListener(AtomicBoolean refreshFinished, Lock refreshFinishLock, Condition refreshFinishCondition) {
             this.refreshFinished = refreshFinished;
+            this.refreshFinishLock = refreshFinishLock;
+            this.refreshFinishCondition = refreshFinishCondition;
         }
 
         @Override
         public void frameworkEvent(FrameworkEvent event) {
             int eventType = event.getType();
             if (eventType == FrameworkEvent.ERROR || eventType == FrameworkEvent.PACKAGES_REFRESHED) {
-                refreshFinished.set(true);
-                LOGGER.info("Framework refresh finished with code "
-                        + BundleUtil.convertFrameworkEventTypeCode(eventType));
+                refreshFinishLock.lock();
+                try {
+                    refreshFinished.set(true);
+                    LOGGER.info("Framework refresh finished with code "
+                            + BundleUtil.convertFrameworkEventTypeCode(eventType));
+                    refreshFinishCondition.signal();
+                } finally {
+                    refreshFinishLock.unlock();
+                }
             } else {
                 StringBuilder sb = new StringBuilder("Event caught during refreshing packages with data:");
                 if (event.getBundle() != null) {
@@ -115,17 +136,16 @@ public class BundleDeployerServiceImpl implements Closeable {
                 } else {
                     LOGGER.info(sb.toString());
                 }
-
             }
         }
     }
 
-    private final Bundle systemBundle;
+    private final BundleContext systemBundleContext;
 
     private final Tracker tracker;
 
     public BundleDeployerServiceImpl(Bundle consoleBundle) {
-        this.systemBundle = consoleBundle.getBundleContext().getBundle(0);
+        this.systemBundleContext = consoleBundle.getBundleContext().getBundle(0).getBundleContext();
         this.tracker =
                 new Tracker(consoleBundle.getBundleContext(), Bundle.ACTIVE | Bundle.INSTALLED | Bundle.RESOLVED
                         | Bundle.STARTING | Bundle.STOPPING);
@@ -133,24 +153,9 @@ public class BundleDeployerServiceImpl implements Closeable {
 
     }
 
-    private Bundle deployBundle(BundleData bundleData, File bundleLocationFile) {
-        String bundleLocation;
-        try {
-            bundleLocation = bundleLocationFile.getCanonicalFile().toURI().toURL().toExternalForm();
-        } catch (MalformedURLException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-            return null;
-        } catch (IOException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-            return null;
-        }
-
-        String symbolicName = bundleData.getSymbolicName();
-        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(symbolicName);
+    private Bundle getExistingBundleBySymbolicName(String bundleLocation, BundleData bundleData) {
+        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(bundleData.getSymbolicName());
         Bundle selectedBundle = null;
-        BundleContext systemBundleContext = systemBundle.getBundleContext();
         if (existingBundleIds != null) {
             if (existingBundleIds.size() == 1) {
                 selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
@@ -176,26 +181,29 @@ public class BundleDeployerServiceImpl implements Closeable {
                 selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
             }
         }
+        return selectedBundle;
+    }
 
-        if (selectedBundle != null) {
-            if (selectedBundle.getLocation().equals(bundleLocation)) {
+    private Bundle deployBundle(String bundleLocation, BundleData bundleData, Bundle originalBundle) {
+        if (originalBundle != null) {
+            if (originalBundle.getLocation().equals(bundleLocation)) {
                 try {
-                    if (selectedBundle.getState() == Bundle.ACTIVE) {
-                        LOGGER.info("Stopping already existing bundle " + selectedBundle.toString());
-                        selectedBundle.stop();
+                    if (originalBundle.getState() == Bundle.ACTIVE) {
+                        LOGGER.info("Stopping already existing bundle " + originalBundle.toString());
+                        originalBundle.stop();
                     }
-                    LOGGER.info("Calling update on bundle " + selectedBundle.toString());
-                    selectedBundle.update();
-                    return selectedBundle;
+                    LOGGER.info("Calling update on bundle " + originalBundle.toString());
+                    originalBundle.update();
+                    return originalBundle;
                 } catch (BundleException e) {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
             } else {
                 try {
-                    LOGGER.info("Uninstalling Bundle " + selectedBundle.getSymbolicName() + ":"
-                            + selectedBundle.getVersion().toString());
-                    selectedBundle.uninstall();
+                    LOGGER.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
+                            + originalBundle.getVersion().toString());
+                    originalBundle.uninstall();
                     LOGGER.info("Installing bundle from '" + bundleLocation.toString() + "'");
                     Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                     return installedBundle;
@@ -219,11 +227,11 @@ public class BundleDeployerServiceImpl implements Closeable {
 
     public void deployBundles(List<File> fileObjects) {
         final AtomicBoolean refreshFinished = new AtomicBoolean(false);
-        FrameworkListener frameworkListener = new RefreshListener(refreshFinished);
 
-        FrameworkWiring frameworkWiring = (FrameworkWiring) systemBundle.adapt(FrameworkWiring.class);
-        List<Bundle> installedBundles = new ArrayList<Bundle>();
-        BundleData bundleData = null;
+        FrameworkWiring frameworkWiring =
+                (FrameworkWiring) systemBundleContext.getBundle().adapt(FrameworkWiring.class);
+
+        Map<String, BundleData> installableBundleByLocation = new LinkedHashMap<String, BundleData>();
 
         for (File fileObject : fileObjects) {
             File bundleLocation = null;
@@ -241,7 +249,8 @@ public class BundleDeployerServiceImpl implements Closeable {
                 }
 
                 try {
-                    bundleData = BundleUtil.readBundleDataFromManifestFile(manifestFile);
+                    BundleData bundleData = BundleUtil.readBundleDataFromManifestFile(manifestFile);
+                    installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
                 } catch (IOException e) {
                     LOGGER.error("Could not deploy bundle from project location " + fileObject.toString(), e);
                     return;
@@ -251,8 +260,9 @@ public class BundleDeployerServiceImpl implements Closeable {
                 try {
                     jarFile = new JarFile(fileObject);
                     Manifest manifest = jarFile.getManifest();
-                    bundleData = BundleUtil.readBundleDataFromManifest(manifest);
+                    BundleData bundleData = BundleUtil.readBundleDataFromManifest(manifest);
                     bundleLocation = fileObject;
+                    installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
                 } catch (IOException e) {
                     LOGGER.error("Unrecognized file type", e);
                     return;
@@ -261,41 +271,88 @@ public class BundleDeployerServiceImpl implements Closeable {
                         try {
                             jarFile.close();
                         } catch (IOException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
+                            LOGGER.error("Cannot close jar file: " + bundleLocation.getAbsolutePath(), e);
                         }
                     }
                 }
-                
-            }
 
-            Bundle installedBundle = deployBundle(bundleData, bundleLocation);
+            }
+        }
+
+        Map<BundleData, Bundle> originalBundleByNewBundleData = new HashMap<BundleData, Bundle>();
+        for (Entry<String, BundleData> entry : installableBundleByLocation.entrySet()) {
+            Bundle originalBundle = getExistingBundleBySymbolicName(entry.getKey(), entry.getValue());
+            if (originalBundle != null) {
+                originalBundleByNewBundleData.put(entry.getValue(), originalBundle);
+            }
+        }
+
+        FrameworkStartLevel frameworkStartLevel = systemBundleContext.getBundle().adapt(FrameworkStartLevel.class);
+        int originalFrameworkStartLevel = frameworkStartLevel.getStartLevel();
+
+        int lowestStartLevel = getLowestStartLevel(originalBundleByNewBundleData.values(), originalFrameworkStartLevel);
+
+        if (lowestStartLevel != originalFrameworkStartLevel) {
+            BundleUtil.setFrameworkStartLevel(frameworkStartLevel, lowestStartLevel);
+        }
+        List<Bundle> installedBundles = new ArrayList<Bundle>();
+
+        for (Entry<String, BundleData> entry : installableBundleByLocation.entrySet()) {
+            Bundle installedBundle =
+                    deployBundle(entry.getKey(), entry.getValue(), originalBundleByNewBundleData.get(entry.getValue()));
             if (installedBundle != null) {
                 installedBundles.add(installedBundle);
             }
         }
 
         LOGGER.info("Calling refresh on OSGi framework. All packages on uninstalled bundles should be re-wired");
-        frameworkWiring.refreshBundles(null, new FrameworkListener[] { frameworkListener });
-        while (!refreshFinished.get()) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-                refreshFinished.set(true);
-                Thread.currentThread().interrupt();
+
+        Lock refreshFinishLock = new ReentrantLock();
+        Condition refreshFinishCondition = refreshFinishLock.newCondition();
+        FrameworkListener refreshListener =
+                new RefreshListener(refreshFinished, refreshFinishLock, refreshFinishCondition);
+        frameworkWiring.refreshBundles(null, new FrameworkListener[] { refreshListener });
+
+        refreshFinishLock.lock();
+        try {
+            while (!refreshFinished.get()) {
+                refreshFinishCondition.await();
             }
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } finally {
+            refreshFinishLock.unlock();
         }
+
+        if (lowestStartLevel != originalFrameworkStartLevel) {
+            BundleUtil.setFrameworkStartLevel(frameworkStartLevel, originalFrameworkStartLevel);
+        }
+
         for (Bundle bundle : installedBundles) {
             try {
-                LOGGER.info("Starting bundle " + bundle.toString());
-                bundle.start();
+                if (bundle.getHeaders().get(Constants.FRAGMENT_HOST) != null) {
+                    LOGGER.info("Starting bundle " + bundle.toString());
+                    bundle.start();
+                }
             } catch (BundleException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
+    }
+
+    private int getLowestStartLevel(Collection<Bundle> bundles, int frameworkStartLevel) {
+        int lowestStartLevel = frameworkStartLevel;
+        for (Bundle bundle : bundles) {
+            BundleStartLevel bundleStartLevel = bundle.adapt(BundleStartLevel.class);
+            int startLevel = bundleStartLevel.getStartLevel();
+            if (startLevel < lowestStartLevel) {
+                lowestStartLevel = startLevel;
+            }
+
+        }
+        return lowestStartLevel;
     }
 
     @Override
