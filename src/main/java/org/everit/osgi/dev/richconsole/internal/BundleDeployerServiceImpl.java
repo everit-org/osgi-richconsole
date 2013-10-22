@@ -204,52 +204,10 @@ public class BundleDeployerServiceImpl implements Closeable {
 
         FrameworkWiring frameworkWiring = systemBundleContext.getBundle().adapt(FrameworkWiring.class);
 
-        Map<String, BundleData> installableBundleByLocation = new LinkedHashMap<String, BundleData>();
+        Map<String, BundleData> installableBundleByLocation = getInstallableBundles(fileObjects);
 
-        for (File fileObject : fileObjects) {
-            File bundleLocation = null;
-            if (fileObject.isDirectory()) {
-                bundleLocation = new File(fileObject, "target/classes");
-                if (!bundleLocation.exists()) {
-                    Logger.warn("Hot deployment failed. There is no target/classes child folder found under "
-                            + fileObject.getPath());
-                    return;
-                }
-                File manifestFile = new File(bundleLocation, "META-INF/MANIFEST.MF");
-                if (!manifestFile.exists()) {
-                    Logger.warn("Hot deployment failed. Manifest file could not be found: " + manifestFile.getPath());
-                    return;
-                }
-
-                try {
-                    BundleData bundleData = BundleUtil.readBundleDataFromManifestFile(manifestFile);
-                    installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
-                } catch (IOException e) {
-                    Logger.error("Could not deploy bundle from project location " + fileObject.toString(), e);
-                    return;
-                }
-            } else {
-                JarFile jarFile = null;
-                try {
-                    jarFile = new JarFile(fileObject);
-                    Manifest manifest = jarFile.getManifest();
-                    BundleData bundleData = BundleUtil.readBundleDataFromManifest(manifest);
-                    bundleLocation = fileObject;
-                    installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
-                } catch (IOException e) {
-                    Logger.error("Unrecognized file type", e);
-                    return;
-                } finally {
-                    if (jarFile != null) {
-                        try {
-                            jarFile.close();
-                        } catch (IOException e) {
-                            Logger.error("Cannot close jar file: " + bundleLocation.getAbsolutePath(), e);
-                        }
-                    }
-                }
-
-            }
+        if (installableBundleByLocation.size() == 0) {
+            return;
         }
 
         Map<BundleData, Bundle> originalBundleByNewBundleData = new HashMap<BundleData, Bundle>();
@@ -294,21 +252,82 @@ public class BundleDeployerServiceImpl implements Closeable {
         }
 
         if (lowestStartLevel != originalFrameworkStartLevel) {
-            Logger.info("Setting back startlevel");
             BundleUtil.setFrameworkStartLevel(frameworkStartLevel, originalFrameworkStartLevel);
         }
 
         for (Bundle bundle : installedBundles) {
             try {
-                String fragmentHostHeader = bundle.getHeaders().get(Constants.FRAGMENT_HOST);
-                if (fragmentHostHeader == null) {
-                    Logger.info("Starting bundle " + bundle.toString());
-                    bundle.start();
+                if (bundle.getState() != Bundle.ACTIVE) {
+                    String fragmentHostHeader = bundle.getHeaders().get(Constants.FRAGMENT_HOST);
+                    if (fragmentHostHeader == null) {
+                        Logger.info("Starting bundle " + bundle.toString());
+                        bundle.start();
+                    }
                 }
             } catch (BundleException e) {
                 Logger.error("Error starting bundle: " + bundle.toString(), e);
             }
         }
+    }
+    
+    public Map<String, BundleData> getInstallableBundles(final List<File> fileObjects) {
+        Map<String, BundleData> installableBundleByLocation = new LinkedHashMap<String, BundleData>();
+
+        for (File fileObject : fileObjects) {
+            File bundleLocation = null;
+            if (fileObject.isDirectory()) {
+                bundleLocation = new File(fileObject, "target/classes");
+                if (!bundleLocation.exists()) {
+                    Logger.warn("Hot deployment failed. There is no target/classes child folder found under "
+                            + fileObject.getPath());
+                    break;
+                }
+                File manifestFile = new File(bundleLocation, "META-INF/MANIFEST.MF");
+                if (!manifestFile.exists()) {
+                    Logger.warn("Hot deployment failed. Manifest file could not be found: " + manifestFile.getPath());
+                    break;
+                }
+
+                try {
+                    BundleData bundleData = BundleUtil.readBundleDataFromManifestFile(manifestFile);
+                    if (bundleData.getSymbolicName() != null) {
+                        installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
+                    } else {
+                        Logger.warn("Location is not recognized as a maven bundle project: "
+                                + bundleLocation.getAbsolutePath());
+                    }
+                } catch (IOException e) {
+                    Logger.error("Could not deploy bundle from project location " + fileObject.toString(), e);
+                    break;
+                }
+            } else {
+                JarFile jarFile = null;
+                try {
+                    jarFile = new JarFile(fileObject);
+                    Manifest manifest = jarFile.getManifest();
+                    BundleData bundleData = BundleUtil.readBundleDataFromManifest(manifest);
+                    if (bundleData.getSymbolicName() != null) {
+                        bundleLocation = fileObject;
+                        installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
+                    } else {
+                        Logger.warn("Jar file is not recognized as a bundle: " + fileObject.getAbsolutePath());
+                    }
+                } catch (IOException e) {
+                    Logger.error("Unrecognized file type", e);
+                    break;
+                } finally {
+                    if (jarFile != null) {
+                        try {
+                            jarFile.close();
+                        } catch (IOException e) {
+                            Logger.error("Cannot close jar file: " + bundleLocation.getAbsolutePath(), e);
+                        }
+                    }
+                }
+
+            }
+        }
+        return installableBundleByLocation;
     }
 
     private Bundle getExistingBundleBySymbolicName(final String bundleLocation, final BundleData bundleData) {

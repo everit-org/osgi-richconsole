@@ -93,6 +93,7 @@ public class BundleUtil {
     }
 
     public static void setFrameworkStartLevel(final FrameworkStartLevel frameworkStartLevel, final int startLevel) {
+        Logger.info("Setting framework startlevel to " + startLevel);
         final AtomicBoolean startLevelReached = new AtomicBoolean(false);
         final Lock lock = new ReentrantLock();
         final Condition startLevelReachedCondition = lock.newCondition();
@@ -104,6 +105,11 @@ public class BundleUtil {
                 lock.lock();
                 int eventType = event.getType();
                 if ((eventType == FrameworkEvent.STARTLEVEL_CHANGED) || (eventType == FrameworkEvent.ERROR)) {
+                    if (eventType == FrameworkEvent.ERROR) {
+                        Logger.error("Setting framework startlevel to " + startLevel + " finished with error: ", event.getThrowable());
+                    } else {
+                        Logger.info("Setting framework startlevel to " + startLevel + " finished with success");
+                    }
                     startLevelReached.set(true);
                     startLevelReachedCondition.signal();
                 }
