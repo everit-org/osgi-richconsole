@@ -27,12 +27,11 @@ import org.everit.osgi.dev.richconsole.MenuItemService;
 public class SettingsMenuItemServiceImpl implements MenuItemService {
 
     private SettingsFrame settingsFrame;
-    
-    private synchronized SettingsFrame getOrCreateSettingsFrame(ConfigStore configStore) {
-        if (settingsFrame == null) {
-            settingsFrame = new SettingsFrame(configStore);
+
+    public void close() {
+        if (settingsFrame != null) {
+            settingsFrame.dispose();
         }
-        return settingsFrame;
     }
 
     @Override
@@ -40,16 +39,17 @@ public class SettingsMenuItemServiceImpl implements MenuItemService {
         return "Main options";
     }
 
+    private synchronized SettingsFrame getOrCreateSettingsFrame(final ConfigStore configStore) {
+        if (settingsFrame == null) {
+            settingsFrame = new SettingsFrame(configStore);
+        }
+        return settingsFrame;
+    }
+
     @Override
-    public void itemFired(ConfigStore configStore) {
+    public void itemFired(final ConfigStore configStore) {
         SettingsFrame tmpSettingsFrame = getOrCreateSettingsFrame(configStore);
         tmpSettingsFrame.setVisible(true);
         tmpSettingsFrame.requestFocus();
-    }
-
-    public void close() {
-        if (settingsFrame != null) {
-            settingsFrame.dispose();
-        }
     }
 }

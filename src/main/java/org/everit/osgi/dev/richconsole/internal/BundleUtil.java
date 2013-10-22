@@ -34,37 +34,10 @@ import java.util.jar.Manifest;
 import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.FrameworkListener;
 import org.osgi.framework.startlevel.FrameworkStartLevel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class BundleUtil {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(BundleUtil.class);
-
-    public static BundleData readBundleDataFromManifestFile(File manifestFile) throws IOException {
-        FileInputStream manifestIS = null;
-        try {
-            manifestIS = new FileInputStream(manifestFile);
-            return readBundleDataFromManifest(new Manifest(manifestIS));
-        } finally {
-            if (manifestIS != null) {
-                try {
-                    manifestIS.close();
-                } catch (IOException e) {
-                    LOGGER.error("Could not close manifest file " + manifestFile.toString(), e);
-                }
-            }
-        }
-    }
-
-    public static BundleData readBundleDataFromManifest(Manifest manifest) {
-        Attributes mainAttributes = manifest.getMainAttributes();
-        String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
-        String version = mainAttributes.getValue("Bundle-Version");
-        return new BundleData(symbolicName, version);
-    }
-
-    public static String convertFrameworkEventTypeCode(int code) {
+    public static String convertFrameworkEventTypeCode(final int code) {
         switch (code) {
         case FrameworkEvent.ERROR:
             return "ERROR";
@@ -92,11 +65,34 @@ public class BundleUtil {
         return String.valueOf(code);
     }
 
-    public static String getBundleLocationByFile(File file) throws IOException {
+    public static String getBundleLocationByFile(final File file) throws IOException {
         return file.getCanonicalFile().toURI().toString();
     }
 
-    public static void setFrameworkStartLevel(FrameworkStartLevel frameworkStartLevel, int startLevel) {
+    public static BundleData readBundleDataFromManifest(final Manifest manifest) {
+        Attributes mainAttributes = manifest.getMainAttributes();
+        String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
+        String version = mainAttributes.getValue("Bundle-Version");
+        return new BundleData(symbolicName, version);
+    }
+
+    public static BundleData readBundleDataFromManifestFile(final File manifestFile) throws IOException {
+        FileInputStream manifestIS = null;
+        try {
+            manifestIS = new FileInputStream(manifestFile);
+            return BundleUtil.readBundleDataFromManifest(new Manifest(manifestIS));
+        } finally {
+            if (manifestIS != null) {
+                try {
+                    manifestIS.close();
+                } catch (IOException e) {
+                    Logger.error("Could not close manifest file " + manifestFile.toString(), e);
+                }
+            }
+        }
+    }
+
+    public static void setFrameworkStartLevel(final FrameworkStartLevel frameworkStartLevel, final int startLevel) {
         final AtomicBoolean startLevelReached = new AtomicBoolean(false);
         final Lock lock = new ReentrantLock();
         final Condition startLevelReachedCondition = lock.newCondition();
@@ -104,10 +100,10 @@ public class BundleUtil {
         frameworkStartLevel.setStartLevel(startLevel, new FrameworkListener() {
 
             @Override
-            public void frameworkEvent(FrameworkEvent event) {
+            public void frameworkEvent(final FrameworkEvent event) {
                 lock.lock();
                 int eventType = event.getType();
-                if (eventType == FrameworkEvent.STARTLEVEL_CHANGED || eventType == FrameworkEvent.ERROR) {
+                if ((eventType == FrameworkEvent.STARTLEVEL_CHANGED) || (eventType == FrameworkEvent.ERROR)) {
                     startLevelReached.set(true);
                     startLevelReachedCondition.signal();
                 }
@@ -120,8 +116,7 @@ public class BundleUtil {
                 startLevelReachedCondition.await();
             }
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            Logger.error("Startlevel reaching wait interrupted", e);
         } finally {
             lock.unlock();
         }

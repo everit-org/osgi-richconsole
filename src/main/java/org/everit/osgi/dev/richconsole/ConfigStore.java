@@ -22,16 +22,16 @@ package org.everit.osgi.dev.richconsole;
  */
 
 public interface ConfigStore {
-    
+
     String SYSPROP_SETTINGS_FILE_PATH = "org.everit.osgi.dev.richconsole.SettingsFilePath";
-    
+
     void addPropertyChangeListener(ConfigPropertyChangeListener listener);
-    
-    void removePropertyChangeListener(ConfigPropertyChangeListener listener);
 
     String getProperty(String key);
-    
-    void setProperty(String key, String value);
 
     String getSettingsFilePath();
+
+    void removePropertyChangeListener(ConfigPropertyChangeListener listener);
+
+    void setProperty(String key, String value);
 }

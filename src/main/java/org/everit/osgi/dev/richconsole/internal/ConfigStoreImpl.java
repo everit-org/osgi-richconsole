@@ -23,7 +23,6 @@ package org.everit.osgi.dev.richconsole.internal;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,21 +44,21 @@ import org.osgi.framework.BundleContext;
 
 public class ConfigStoreImpl implements ConfigStore {
 
-    private static final String SETTINGS_FILE_COMMENT = "Settings file of EOSGi Richconsole";
-
     private static final String DEFAULT_SETTINGS_FILE_NAME = "richConsoleSettings.properties";
 
-    private List<ConfigPropertyChangeListener> listeners = new ArrayList<ConfigPropertyChangeListener>();
+    private static final String SETTINGS_FILE_COMMENT = "Settings file of EOSGi Richconsole";
 
     private ReadWriteLock listenerLocker = new ReentrantReadWriteLock(false);
 
-    private ReadWriteLock propertiesLocker = new ReentrantReadWriteLock(false);
+    private List<ConfigPropertyChangeListener> listeners = new ArrayList<ConfigPropertyChangeListener>();
 
     private Properties properties = new Properties();
 
+    private ReadWriteLock propertiesLocker = new ReentrantReadWriteLock(false);
+
     private final File settingsFile;
 
-    public ConfigStoreImpl(BundleContext richConsoleContext) {
+    public ConfigStoreImpl(final BundleContext richConsoleContext) {
         String settingsFilePathSysProp = System.getProperty(ConfigStore.SYSPROP_SETTINGS_FILE_PATH);
         if (settingsFilePathSysProp == null) {
             settingsFile = richConsoleContext.getDataFile(DEFAULT_SETTINGS_FILE_NAME);
@@ -71,19 +70,14 @@ public class ConfigStoreImpl implements ConfigStore {
             try {
                 fin = new FileInputStream(settingsFile);
                 properties.load(fin);
-            } catch (FileNotFoundException e) {
-                // TODO
-                e.printStackTrace();
             } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                Logger.error("Cannot load settings file: " + settingsFile.getAbsolutePath(), e);
             } finally {
                 if (fin != null) {
                     try {
                         fin.close();
                     } catch (IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
+                        Logger.error("Error closing settings file after loading: " + settingsFile.getAbsolutePath(), e);
                     }
                 }
             }
@@ -95,13 +89,14 @@ public class ConfigStoreImpl implements ConfigStore {
                 fout = new FileOutputStream(settingsFile);
                 properties.store(fout, SETTINGS_FILE_COMMENT);
             } catch (IOException e) {
-                e.printStackTrace();
+                Logger.error("Error saving settings file: " + settingsFile.getAbsolutePath(), e);
             } finally {
                 if (fout != null) {
                     try {
                         fout.close();
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Logger.error("Error closing settings file after saving it: " + settingsFile.getAbsolutePath(),
+                                e);
                     }
                 }
             }
@@ -109,7 +104,29 @@ public class ConfigStoreImpl implements ConfigStore {
     }
 
     @Override
-    public String getProperty(String key) {
+    public void addPropertyChangeListener(final ConfigPropertyChangeListener listener) {
+        Lock writeLock = listenerLocker.writeLock();
+        writeLock.lock();
+        listeners.add(listener);
+        writeLock.unlock();
+    }
+
+    public void exportToFile(final File file) {
+        Lock readLock = propertiesLocker.readLock();
+        readLock.lock();
+        FileOutputStream fout = null;
+        try {
+            fout = new FileOutputStream(file);
+            properties.store(fout, SETTINGS_FILE_COMMENT);
+        } catch (IOException e) {
+            Logger.error("Error during exporting configuration to file " + file.toString(), e);
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @Override
+    public String getProperty(final String key) {
         Lock readLock = propertiesLocker.readLock();
         readLock.lock();
         String result = properties.getProperty(key);
@@ -118,46 +135,11 @@ public class ConfigStoreImpl implements ConfigStore {
     }
 
     @Override
-    public void setProperty(String key, String value) {
-        Lock propertiesWriteLock = propertiesLocker.writeLock();
-        propertiesWriteLock.lock();
-        properties.setProperty(key, value);
-
-        Lock listenerReadLock = listenerLocker.readLock();
-        persist();
-        listenerReadLock.lock();
-        Iterator<ConfigPropertyChangeListener> iterator = listeners.iterator();
-        try {
-            while (iterator.hasNext()) {
-                ConfigPropertyChangeListener listener = iterator.next();
-                listener.propertyChanged(key, value);
-            }
-        } finally {
-            listenerReadLock.unlock();
-            propertiesWriteLock.unlock();
-        }
+    public String getSettingsFilePath() {
+        return settingsFile.getAbsolutePath();
     }
 
-    public void persist() {
-        FileOutputStream fout = null;
-        try {
-            fout = new FileOutputStream(settingsFile);
-            properties.store(fout, null);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (fout != null) {
-                try {
-                    fout.close();
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
-    public void importFromFile(File file, boolean cleanImport) {
+    public void importFromFile(final File file, final boolean cleanImport) {
         Lock writeLock = propertiesLocker.writeLock();
         writeLock.lock();
 
@@ -196,68 +178,83 @@ public class ConfigStoreImpl implements ConfigStore {
                     try {
                         listener.propertyChanged((String) addedProperty.getKey(), (String) addedProperty.getValue());
                     } catch (RuntimeException e) {
-                        e.printStackTrace();
+                        Logger.error("Error during calling configuration change listener with parameters key='"
+                                + addedProperty.getKey() + "'; value='" + addedProperty.getValue() + "'", e);
                     }
                 }
                 for (Object droppedProperty : droppedProperties) {
                     try {
                         listener.propertyChanged((String) droppedProperty, null);
                     } catch (RuntimeException e) {
-                        e.printStackTrace();
+                        Logger.error("Error during calling configuration change listener with parameters key='"
+                                + droppedProperty + "'; value=null", e);
                     }
                 }
                 for (Entry<Object, Object> entry : modifiedProperties.entrySet()) {
                     try {
                         listener.propertyChanged((String) entry.getKey(), (String) entry.getValue());
                     } catch (RuntimeException e) {
-                        e.printStackTrace();
+                        Logger.error(
+                                "Error during calling configuration change listener with parameters key='"
+                                        + entry.getKey() + "'; value='" + entry.getValue() + "'", e);
                     }
                 }
             }
             listenerReadLock.unlock();
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            Logger.error("Error during importing settings from file " + file.toString(), e);
         } finally {
             writeLock.unlock();
         }
 
     }
 
-    @Override
-    public void addPropertyChangeListener(ConfigPropertyChangeListener listener) {
-        Lock writeLock = listenerLocker.writeLock();
-        writeLock.lock();
-        listeners.add(listener);
-        writeLock.unlock();
+    public void persist() {
+        FileOutputStream fout = null;
+        try {
+            fout = new FileOutputStream(settingsFile);
+            properties.store(fout, null);
+        } catch (IOException e) {
+            Logger.error("Error storing settings in file: " + settingsFile.getAbsolutePath(), e);
+        } finally {
+            if (fout != null) {
+                try {
+                    fout.close();
+                } catch (IOException e) {
+                    Logger.error(
+                            "Error during closing settings file after storing it: " + settingsFile.getAbsolutePath(), e);
+                }
+            }
+        }
     }
 
     @Override
-    public void removePropertyChangeListener(ConfigPropertyChangeListener listener) {
+    public void removePropertyChangeListener(final ConfigPropertyChangeListener listener) {
         Lock writeLock = listenerLocker.writeLock();
         writeLock.lock();
         listeners.remove(listener);
         writeLock.unlock();
     }
 
-    public void exportToFile(File file) {
-        Lock readLock = propertiesLocker.readLock();
-        readLock.lock();
-        FileOutputStream fout = null;
-        try {
-            fout = new FileOutputStream(file);
-            properties.store(fout, SETTINGS_FILE_COMMENT);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } finally {
-            readLock.unlock();
-        }
-    }
-
     @Override
-    public String getSettingsFilePath() {
-        return settingsFile.getAbsolutePath();
+    public void setProperty(final String key, final String value) {
+        Lock propertiesWriteLock = propertiesLocker.writeLock();
+        propertiesWriteLock.lock();
+        properties.setProperty(key, value);
+
+        Lock listenerReadLock = listenerLocker.readLock();
+        persist();
+        listenerReadLock.lock();
+        Iterator<ConfigPropertyChangeListener> iterator = listeners.iterator();
+        try {
+            while (iterator.hasNext()) {
+                ConfigPropertyChangeListener listener = iterator.next();
+                listener.propertyChanged(key, value);
+            }
+        } finally {
+            listenerReadLock.unlock();
+            propertiesWriteLock.unlock();
+        }
     }
 }

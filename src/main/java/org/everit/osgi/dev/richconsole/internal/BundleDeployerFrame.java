@@ -53,37 +53,43 @@ import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
 import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.everit.osgi.dev.richconsole.internal.settings.SettingsFrame;
 import org.osgi.framework.BundleContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class BundleDeployerFrame implements MainFrame, Closeable {
 
+    private static Point point = new Point();
+
     private BundleDeployerServiceImpl bundleServiceImpl;
+
+    private ConfigStore configStore;
 
     private MenuItemTrackerImpl menuItemTracker;
 
     private JFrame smallFrame;
-    
-    private ConfigStore configStore;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(BundleDeployerFrame.class);
-
-    private static Point point = new Point();
-
-    public BundleDeployerFrame(BundleDeployerServiceImpl bundleServiceImpl) {
+    public BundleDeployerFrame(final BundleDeployerServiceImpl bundleServiceImpl) {
         this.bundleServiceImpl = bundleServiceImpl;
     }
 
-    public void start(BundleContext context) {
+    @Override
+    public void close() {
+        menuItemTracker.stop();
+        smallFrame.dispose();
+    }
+
+    @Override
+    public ConfigStore getConfigStore() {
+        return configStore;
+    }
+
+    public void start(final BundleContext context) {
         URL imageResource = this.getClass().getResource("/images/everit_OSGi_deployer.png");
         configStore = new ConfigStoreImpl(context);
-        
+
         Image backgroundImage = null;
         try {
             backgroundImage = ImageIO.read(imageResource);
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            Logger.error("Could not read background image for deployer window", e);
         }
         final Image finalImage = backgroundImage;
         smallFrame = new JFrame("OSGi Bundle Deployer");
@@ -96,8 +102,13 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
         smallFrame.setSize(panelWidth, panelHeight);
 
         JPanel panel = new JPanel() {
+            /**
+             * 
+             */
+            private static final long serialVersionUID = 1L;
+
             @Override
-            public void paintComponent(Graphics g) {
+            public void paintComponent(final Graphics g) {
                 g.drawImage(finalImage, 1, 1, panelWidth - 2, panelHeight - 2, 0, 0, finalImage.getWidth(smallFrame),
                         finalImage.getHeight(smallFrame), smallFrame);
                 g.setColor(Color.BLACK);
@@ -114,9 +125,9 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
             jlabel.setText(label);
         }
         configStore.addPropertyChangeListener(new ConfigPropertyChangeListener() {
-            
+
             @Override
-            public void propertyChanged(String key, String value) {
+            public void propertyChanged(final String key, final String value) {
                 if (SettingsFrame.DEPLOYER_WINDOW_LABEL.equals(key)) {
                     jlabel.setText(value);
                 }
@@ -130,7 +141,7 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
                 Method method = smallFrame.getClass().getMethod("setOpacity", float.class);
                 method.invoke(smallFrame, (float) 0.9);
             } catch (Exception e1) {
-                LOGGER.info("Opacity for frames are not supported. OSGi deployer window"
+                Logger.info("Opacity for frames are not supported. OSGi deployer window"
                         + " will appear with no transparency option.");
             }
         }
@@ -140,7 +151,8 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
         // make our frame dragable.
         //
         panel.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
+            @Override
+            public void mousePressed(final MouseEvent e) {
                 Point location = smallFrame.getLocation();
                 point.x = e.getXOnScreen() - (int) location.getX();
                 point.y = e.getYOnScreen() - (int) location.getY();
@@ -148,8 +160,8 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
         });
 
         panel.addMouseMotionListener(new MouseMotionAdapter() {
-            public void mouseDragged(MouseEvent e) {
-                Point p = smallFrame.getLocation();
+            @Override
+            public void mouseDragged(final MouseEvent e) {
                 smallFrame.setLocation(e.getXOnScreen() - point.x, e.getYOnScreen() - point.y);
             }
         });
@@ -157,19 +169,15 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
         DropTarget dropTarget = new DropTarget();
         panel.setDropTarget(dropTarget);
         try {
-            dropTarget.addDropTargetListener(new DropTargetAdapter()  {
+            dropTarget.addDropTargetListener(new DropTargetAdapter() {
 
-                public void dropActionChanged(DropTargetDragEvent dtde) {
-                    System.out.println("dropActionChanged: " + dtde.toString());
-
-                }
-
-                public void drop(DropTargetDropEvent dtde) {
-                    LOGGER.info("Drop event caught on OSGi deployer");
+                @Override
+                public void drop(final DropTargetDropEvent dtde) {
+                    Logger.info("Drop event caught on OSGi deployer");
                     Transferable transferable = dtde.getTransferable();
                     DataFlavor[] transferDataFlavors = transferable.getTransferDataFlavors();
                     DataFlavor selectedDataFlavor = null;
-                    for (int i = 0, n = transferDataFlavors.length; i < n && selectedDataFlavor == null; i++) {
+                    for (int i = 0, n = transferDataFlavors.length; (i < n) && (selectedDataFlavor == null); i++) {
                         if (transferDataFlavors[i].isFlavorJavaFileListType()) {
                             selectedDataFlavor = transferDataFlavors[i];
                         }
@@ -180,40 +188,32 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
                         try {
                             @SuppressWarnings("unchecked")
                             List<File> transferDataList = (List<File>) transferable.getTransferData(selectedDataFlavor);
-                            LOGGER.info("Analyzing files if they can be deployed: " + transferDataList.toString());
+                            Logger.info("Analyzing files if they can be deployed: " + transferDataList.toString());
                             bundleServiceImpl.deployBundles(transferDataList);
                         } catch (UnsupportedFlavorException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
+                            Logger.error("Unsupported drop flavor on Deployer window", e);
                         } catch (IOException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
+                            Logger.error("Error during dropping to deployer window", e);
                         }
 
                     } else {
-                        LOGGER.warn("No supported format found in dropped content. "
+                        Logger.warn("No supported format found in dropped content. "
                                 + "Supported format is 'File List Type'");
                     }
                 }
+
+                @Override
+                public void dropActionChanged(final DropTargetDragEvent dtde) {
+                    System.out.println("dropActionChanged: " + dtde.toString());
+
+                }
             });
         } catch (TooManyListenersException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
+            Logger.error("Too many listeners during dropping to deployer window", e1);
         }
 
         menuItemTracker = new MenuItemTrackerImpl(this, panel, context);
         menuItemTracker.start();
         smallFrame.setVisible(true);
-    }
-
-    @Override
-    public void close() {
-        menuItemTracker.stop();
-        smallFrame.dispose();
-    }
-
-    @Override
-    public ConfigStore getConfigStore() {
-        return configStore;
     }
 }

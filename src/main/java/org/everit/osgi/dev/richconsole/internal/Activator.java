@@ -36,12 +36,12 @@ public class Activator implements BundleActivator {
 
     private BundleDeployerServiceImpl bundleService;
 
-    private ServiceRegistration<MenuItemService> settingsServiceRegistration;
-
     private SettingsMenuItemServiceImpl settingsMenuItemService;
 
+    private ServiceRegistration<MenuItemService> settingsServiceRegistration;
+
     @Override
-    public void start(BundleContext context) throws Exception {
+    public void start(final BundleContext context) throws Exception {
         String stopAfterTests = System.getenv("EOSGI_STOP_AFTER_TESTS");
         if (Boolean.valueOf(stopAfterTests)) {
             return;
@@ -58,7 +58,7 @@ public class Activator implements BundleActivator {
     }
 
     @Override
-    public void stop(BundleContext context) throws Exception {
+    public void stop(final BundleContext context) throws Exception {
         if (settingsMenuItemService != null) {
             settingsMenuItemService.close();
         }

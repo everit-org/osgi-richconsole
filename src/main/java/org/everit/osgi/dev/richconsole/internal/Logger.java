@@ -23,18 +23,21 @@ package org.everit.osgi.dev.richconsole.internal;
 
 public class Logger {
 
-    public static void info(String message) {
-        System.out.println("Richconsole INFO: " + message);
+    public static void error(final String message, final Throwable e) {
+        System.err.println("Richconsole ERROR: " + message);
+        if (e != null) {
+            e.printStackTrace(System.err);
+        }
+        System.err.flush();
     }
 
-    public static void error(String message, Throwable e) {
-        System.out.println("Richconsole ERROR: " + message);
-        if (e != null) {
-            e.printStackTrace(System.out);
-        }
+    public static void info(final String message) {
+        System.out.println("Richconsole INFO: " + message);
+        System.out.flush();
     }
-    
-    public static void warn(String message) {
+
+    public static void warn(final String message) {
         System.out.println("Richconsole WARN: " + message);
+        System.out.flush();
     }
 }

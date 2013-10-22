@@ -54,60 +54,25 @@ import org.osgi.util.tracker.BundleTracker;
 
 public class BundleDeployerServiceImpl implements Closeable {
 
-    private class Tracker extends BundleTracker<Bundle> {
-
-        private Map<String, List<Long>> bundleDataBySymbolicName = new ConcurrentHashMap<String, List<Long>>();
-
-        public Tracker(BundleContext context, int stateMask) {
-            super(context, stateMask, null);
-        }
-
-        @Override
-        public Bundle addingBundle(Bundle bundle, BundleEvent event) {
-            String symbolicName = bundle.getSymbolicName();
-            List<Long> bundleIdList = bundleDataBySymbolicName.get(symbolicName);
-            if (bundleIdList == null) {
-                bundleIdList = new ArrayList<Long>();
-                bundleDataBySymbolicName.put(symbolicName, bundleIdList);
-            }
-            bundleIdList.add(bundle.getBundleId());
-            return super.addingBundle(bundle, event);
-        }
-
-        @Override
-        public void removedBundle(Bundle bundle, BundleEvent event, Bundle object) {
-            super.remove(bundle);
-            String symbolicName = bundle.getSymbolicName();
-            List<Long> list = bundleDataBySymbolicName.get(symbolicName);
-            list.remove(bundle.getBundleId());
-            if (list.size() == 0) {
-                bundleDataBySymbolicName.remove(symbolicName);
-            }
-        }
-
-        public List<Long> getBundleIdsBySymbolicName(String symbolicName) {
-            return bundleDataBySymbolicName.get(symbolicName);
-        }
-    }
-
     private static class RefreshListener implements FrameworkListener {
+
+        private final Condition refreshFinishCondition;
 
         private final AtomicBoolean refreshFinished;
 
         private final Lock refreshFinishLock;
 
-        private final Condition refreshFinishCondition;
-
-        public RefreshListener(AtomicBoolean refreshFinished, Lock refreshFinishLock, Condition refreshFinishCondition) {
+        public RefreshListener(final AtomicBoolean refreshFinished, final Lock refreshFinishLock,
+                final Condition refreshFinishCondition) {
             this.refreshFinished = refreshFinished;
             this.refreshFinishLock = refreshFinishLock;
             this.refreshFinishCondition = refreshFinishCondition;
         }
 
         @Override
-        public void frameworkEvent(FrameworkEvent event) {
+        public void frameworkEvent(final FrameworkEvent event) {
             int eventType = event.getType();
-            if (eventType == FrameworkEvent.ERROR || eventType == FrameworkEvent.PACKAGES_REFRESHED) {
+            if ((eventType == FrameworkEvent.ERROR) || (eventType == FrameworkEvent.PACKAGES_REFRESHED)) {
                 refreshFinishLock.lock();
                 try {
                     refreshFinished.set(true);
@@ -135,51 +100,61 @@ public class BundleDeployerServiceImpl implements Closeable {
         }
     }
 
+    private class Tracker extends BundleTracker<Bundle> {
+
+        private Map<String, List<Long>> bundleDataBySymbolicName = new ConcurrentHashMap<String, List<Long>>();
+
+        public Tracker(final BundleContext context, final int stateMask) {
+            super(context, stateMask, null);
+        }
+
+        @Override
+        public Bundle addingBundle(final Bundle bundle, final BundleEvent event) {
+            String symbolicName = bundle.getSymbolicName();
+            List<Long> bundleIdList = bundleDataBySymbolicName.get(symbolicName);
+            if (bundleIdList == null) {
+                bundleIdList = new ArrayList<Long>();
+                bundleDataBySymbolicName.put(symbolicName, bundleIdList);
+            }
+            bundleIdList.add(bundle.getBundleId());
+            return super.addingBundle(bundle, event);
+        }
+
+        public List<Long> getBundleIdsBySymbolicName(final String symbolicName) {
+            return bundleDataBySymbolicName.get(symbolicName);
+        }
+
+        @Override
+        public void removedBundle(final Bundle bundle, final BundleEvent event, final Bundle object) {
+            super.remove(bundle);
+            String symbolicName = bundle.getSymbolicName();
+            List<Long> list = bundleDataBySymbolicName.get(symbolicName);
+            list.remove(bundle.getBundleId());
+            if (list.size() == 0) {
+                bundleDataBySymbolicName.remove(symbolicName);
+            }
+        }
+    }
+
     private final BundleContext systemBundleContext;
 
     private final Tracker tracker;
 
-    public BundleDeployerServiceImpl(Bundle consoleBundle) {
-        this.systemBundleContext = consoleBundle.getBundleContext().getBundle(0).getBundleContext();
-        this.tracker =
+    public BundleDeployerServiceImpl(final Bundle consoleBundle) {
+        systemBundleContext = consoleBundle.getBundleContext().getBundle(0).getBundleContext();
+        tracker =
                 new Tracker(consoleBundle.getBundleContext(), Bundle.ACTIVE | Bundle.INSTALLED | Bundle.RESOLVED
                         | Bundle.STARTING | Bundle.STOPPING);
-        this.tracker.open();
+        tracker.open();
 
     }
 
-    private Bundle getExistingBundleBySymbolicName(String bundleLocation, BundleData bundleData) {
-        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(bundleData.getSymbolicName());
-        Bundle selectedBundle = null;
-        if (existingBundleIds != null) {
-            if (existingBundleIds.size() == 1) {
-                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
-            }
-            Iterator<Long> iterator = existingBundleIds.iterator();
-            while (iterator.hasNext() && selectedBundle == null) {
-                Long existingBundleId = iterator.next();
-                Bundle bundle = systemBundleContext.getBundle(existingBundleId);
-                String existingBundleLocation = bundle.getLocation();
-
-                if (existingBundleLocation.equals(bundleLocation)) {
-                    selectedBundle = bundle;
-                }
-
-                if (selectedBundle == null) {
-                    String existingBundleVersion = bundle.getVersion().toString();
-                    if (existingBundleVersion.equals(bundleData.getVersion())) {
-                        selectedBundle = bundle;
-                    }
-                }
-            }
-            if (selectedBundle == null && existingBundleIds.size() > 0) {
-                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
-            }
-        }
-        return selectedBundle;
+    @Override
+    public void close() throws IOException {
+        tracker.close();
     }
 
-    private Bundle deployBundle(String bundleLocation, BundleData bundleData, Bundle originalBundle) {
+    private Bundle deployBundle(final String bundleLocation, final BundleData bundleData, final Bundle originalBundle) {
         if (originalBundle != null) {
             if (originalBundle.getLocation().equals(bundleLocation)) {
                 try {
@@ -191,8 +166,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                     originalBundle.update();
                     return originalBundle;
                 } catch (BundleException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    Logger.error("Error during deploying bundle: " + bundleLocation, e);
                 }
             } else {
                 try {
@@ -203,8 +177,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                     Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                     return installedBundle;
                 } catch (BundleException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    Logger.error("Error during deploying bundle: " + bundleLocation, e);
                 }
             }
         } else {
@@ -213,14 +186,13 @@ public class BundleDeployerServiceImpl implements Closeable {
                 Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                 return installedBundle;
             } catch (BundleException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                Logger.error("Error during deploying bundle: " + bundleLocation, e);
             }
         }
         return null;
     }
 
-    public void deployBundles(List<File> fileObjects) {
+    public void deployBundles(final List<File> fileObjects) {
         final AtomicBoolean refreshFinished = new AtomicBoolean(false);
 
         // Refresh classes must be initialized first because they will be not available if the richconsole re-deploys
@@ -230,8 +202,7 @@ public class BundleDeployerServiceImpl implements Closeable {
         FrameworkListener refreshListener =
                 new RefreshListener(refreshFinished, refreshFinishLock, refreshFinishCondition);
 
-        FrameworkWiring frameworkWiring =
-                (FrameworkWiring) systemBundleContext.getBundle().adapt(FrameworkWiring.class);
+        FrameworkWiring frameworkWiring = systemBundleContext.getBundle().adapt(FrameworkWiring.class);
 
         Map<String, BundleData> installableBundleByLocation = new LinkedHashMap<String, BundleData>();
 
@@ -317,8 +288,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                 refreshFinishCondition.await();
             }
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            Logger.error("Interrupting waiting for framework refresh", e);
         } finally {
             refreshFinishLock.unlock();
         }
@@ -336,13 +306,43 @@ public class BundleDeployerServiceImpl implements Closeable {
                     bundle.start();
                 }
             } catch (BundleException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                Logger.error("Error starting bundle: " + bundle.toString(), e);
             }
         }
     }
 
-    private int getLowestStartLevel(Collection<Bundle> bundles, int frameworkStartLevel) {
+    private Bundle getExistingBundleBySymbolicName(final String bundleLocation, final BundleData bundleData) {
+        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(bundleData.getSymbolicName());
+        Bundle selectedBundle = null;
+        if (existingBundleIds != null) {
+            if (existingBundleIds.size() == 1) {
+                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
+            }
+            Iterator<Long> iterator = existingBundleIds.iterator();
+            while (iterator.hasNext() && (selectedBundle == null)) {
+                Long existingBundleId = iterator.next();
+                Bundle bundle = systemBundleContext.getBundle(existingBundleId);
+                String existingBundleLocation = bundle.getLocation();
+
+                if (existingBundleLocation.equals(bundleLocation)) {
+                    selectedBundle = bundle;
+                }
+
+                if (selectedBundle == null) {
+                    String existingBundleVersion = bundle.getVersion().toString();
+                    if (existingBundleVersion.equals(bundleData.getVersion())) {
+                        selectedBundle = bundle;
+                    }
+                }
+            }
+            if ((selectedBundle == null) && (existingBundleIds.size() > 0)) {
+                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
+            }
+        }
+        return selectedBundle;
+    }
+
+    private int getLowestStartLevel(final Collection<Bundle> bundles, final int frameworkStartLevel) {
         int lowestStartLevel = frameworkStartLevel;
         for (Bundle bundle : bundles) {
             BundleStartLevel bundleStartLevel = bundle.adapt(BundleStartLevel.class);
@@ -352,10 +352,5 @@ public class BundleDeployerServiceImpl implements Closeable {
             }
         }
         return lowestStartLevel;
-    }
-
-    @Override
-    public void close() throws IOException {
-        tracker.close();
     }
 }

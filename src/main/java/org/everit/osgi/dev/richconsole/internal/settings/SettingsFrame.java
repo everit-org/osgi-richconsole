@@ -21,7 +21,6 @@ package org.everit.osgi.dev.richconsole.internal.settings;
  * MA 02110-1301  USA
  */
 
-import java.awt.EventQueue;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -41,6 +40,7 @@ import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
 
 import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
@@ -49,12 +49,12 @@ import org.everit.osgi.dev.richconsole.internal.ConfigStoreImpl;
 
 public class SettingsFrame extends JFrame {
 
+    public static final String DEPLOYER_WINDOW_LABEL = "DEPLOYER_WINDOW_LABEL";
+
     /**
      * 
      */
     private static final long serialVersionUID = 1L;
-
-    public static final String DEPLOYER_WINDOW_LABEL = "DEPLOYER_WINDOW_LABEL";
 
     private JPanel contentPane;
 
@@ -63,34 +63,18 @@ public class SettingsFrame extends JFrame {
     private JTextField settingsFilePathTextField;
 
     /**
-     * Launch the application.
-     */
-    public static void main(String[] args) {
-        EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                try {
-                    SettingsFrame frame = new SettingsFrame(new ConfigStoreImpl(null));
-                    frame.setVisible(true);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
-    /**
      * Create the frame.
      */
     public SettingsFrame(final ConfigStore configStore) {
         setTitle("Settings");
-        setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         setBounds(100, 100, 499, 300);
         contentPane = new JPanel();
         contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
         setContentPane(contentPane);
         contentPane.setLayout(new GridLayout(0, 1, 0, 0));
 
-        JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+        JTabbedPane tabbedPane = new JTabbedPane(SwingConstants.TOP);
         contentPane.add(tabbedPane);
 
         JPanel decorationPanel = new JPanel();
@@ -107,9 +91,9 @@ public class SettingsFrame extends JFrame {
         decorationPanel.add(labelTextField);
         labelTextField.setColumns(6);
         configStore.addPropertyChangeListener(new ConfigPropertyChangeListener() {
-            
+
             @Override
-            public void propertyChanged(String key, String value) {
+            public void propertyChanged(final String key, final String value) {
                 if (key.equals(DEPLOYER_WINDOW_LABEL)) {
                     System.out.println("////// SETtING " + value);
                     labelTextField.setText(value);
@@ -172,7 +156,8 @@ public class SettingsFrame extends JFrame {
 
         JButton btnImport = new JButton("Import...");
         btnImport.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
+            @Override
+            public void actionPerformed(final ActionEvent e) {
                 JFileChooser jFileChooser = new JFileChooser();
                 int fileDialogResult = jFileChooser.showOpenDialog(storePanel);
                 if (fileDialogResult == JFileChooser.APPROVE_OPTION) {
@@ -192,7 +177,8 @@ public class SettingsFrame extends JFrame {
 
         JButton btnExport = new JButton("Export...");
         btnExport.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
+            @Override
+            public void actionPerformed(final ActionEvent e) {
                 JFileChooser jFileChooser = new JFileChooser();
                 int fileDialogResult = jFileChooser.showSaveDialog(storePanel);
                 if (fileDialogResult == JFileChooser.APPROVE_OPTION) {
@@ -205,7 +191,8 @@ public class SettingsFrame extends JFrame {
         });
         panel.add(btnExport);
         btnStore.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
+            @Override
+            public void actionPerformed(final ActionEvent e) {
                 configStore.setProperty(DEPLOYER_WINDOW_LABEL, labelTextField.getText());
             }
         });

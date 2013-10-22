@@ -30,8 +30,7 @@ public class BundleData {
     public BundleData() {
     }
 
-    public BundleData(String symbolicName, String version) {
-        super();
+    public BundleData(final String symbolicName, final String version) {
         this.symbolicName = symbolicName;
         this.version = version;
     }
@@ -40,15 +39,15 @@ public class BundleData {
         return symbolicName;
     }
 
-    public void setSymbolicName(String symbolicName) {
-        this.symbolicName = symbolicName;
-    }
-
     public String getVersion() {
         return version;
     }
 
-    public void setVersion(String version) {
+    public void setSymbolicName(final String symbolicName) {
+        this.symbolicName = symbolicName;
+    }
+
+    public void setVersion(final String version) {
         this.version = version;
     }
 

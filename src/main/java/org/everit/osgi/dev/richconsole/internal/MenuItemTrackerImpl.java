@@ -41,16 +41,16 @@ import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
 public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemService, MenuItemService> {
 
-    private ServiceTracker<MenuItemService, MenuItemService> menuItemServiceTracker;
-
-    private final JPopupMenu popupMenu;
-
     private final BundleContext context;
 
     private final MainFrame mainFrame;
 
     private Map<ServiceReference<MenuItemService>, JMenuItem> menuItemByService =
             new HashMap<ServiceReference<MenuItemService>, JMenuItem>();
+
+    private ServiceTracker<MenuItemService, MenuItemService> menuItemServiceTracker;
+
+    private final JPopupMenu popupMenu;
 
     public MenuItemTrackerImpl(final MainFrame mainFrame, final JPanel origin, final BundleContext context) {
         this.mainFrame = mainFrame;
@@ -60,7 +60,7 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
         popupMenu = new JPopupMenu();
         origin.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mouseClicked(final MouseEvent e) {
                 showMenu(origin, e.getX(), e.getY());
 
             }
@@ -68,20 +68,8 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
         this.context = context;
     }
 
-    public void start() {
-        menuItemServiceTracker.open();
-    }
-
-    public void showMenu(Component origin, int x, int y) {
-        popupMenu.show(origin, x, y);
-    }
-
-    public void stop() {
-        menuItemServiceTracker.close();
-    }
-
     @Override
-    public MenuItemService addingService(ServiceReference<MenuItemService> reference) {
+    public MenuItemService addingService(final ServiceReference<MenuItemService> reference) {
         final MenuItemService menuItemService = context.getService(reference);
         String label = menuItemService.getLabel();
         JMenuItem menuItem = new JMenuItem(label);
@@ -89,7 +77,7 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
         menuItem.addActionListener(new ActionListener() {
 
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(final ActionEvent e) {
                 menuItemService.itemFired(mainFrame.getConfigStore());
             }
         });
@@ -99,14 +87,26 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
     }
 
     @Override
-    public void modifiedService(ServiceReference<MenuItemService> reference, MenuItemService service) {
+    public void modifiedService(final ServiceReference<MenuItemService> reference, final MenuItemService service) {
         // Do nothing
     }
 
     @Override
-    public void removedService(ServiceReference<MenuItemService> reference, MenuItemService service) {
+    public void removedService(final ServiceReference<MenuItemService> reference, final MenuItemService service) {
         JMenuItem menuItem = menuItemByService.remove(reference);
         popupMenu.remove(menuItem);
         context.ungetService(reference);
+    }
+
+    public void showMenu(final Component origin, final int x, final int y) {
+        popupMenu.show(origin, x, y);
+    }
+
+    public void start() {
+        menuItemServiceTracker.open();
+    }
+
+    public void stop() {
+        menuItemServiceTracker.close();
     }
 }

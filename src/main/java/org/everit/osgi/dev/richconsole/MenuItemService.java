@@ -21,7 +21,6 @@ package org.everit.osgi.dev.richconsole;
  * MA 02110-1301  USA
  */
 
-
 /**
  * In case someone wants to extend the richconsole with new functionality an OSGi service should be provided with this
  * interface. By clicking on the deployer window, a context menu will appear that will contain each MenuItem service.
