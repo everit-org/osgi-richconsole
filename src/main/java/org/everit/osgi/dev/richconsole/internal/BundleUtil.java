@@ -109,6 +109,7 @@ public class BundleUtil {
                 int eventType = event.getType();
                 if (eventType == FrameworkEvent.STARTLEVEL_CHANGED || eventType == FrameworkEvent.ERROR) {
                     startLevelReached.set(true);
+                    startLevelReachedCondition.signal();
                 }
                 lock.unlock();
             }

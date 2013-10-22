@@ -49,15 +49,10 @@ import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.FrameworkListener;
 import org.osgi.framework.startlevel.BundleStartLevel;
 import org.osgi.framework.startlevel.FrameworkStartLevel;
-import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.util.tracker.BundleTracker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class BundleDeployerServiceImpl implements Closeable {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(BundleDeployerServiceImpl.class);
 
     private class Tracker extends BundleTracker<Bundle> {
 
@@ -116,7 +111,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                 refreshFinishLock.lock();
                 try {
                     refreshFinished.set(true);
-                    LOGGER.info("Framework refresh finished with code "
+                    Logger.info("Framework refresh finished with code "
                             + BundleUtil.convertFrameworkEventTypeCode(eventType));
                     refreshFinishCondition.signal();
                 } finally {
@@ -132,9 +127,9 @@ public class BundleDeployerServiceImpl implements Closeable {
                 }
                 sb.append("\n\tEvent type: ").append(BundleUtil.convertFrameworkEventTypeCode(event.getType()));
                 if (event.getThrowable() != null) {
-                    LOGGER.error(sb.toString(), event.getThrowable());
+                    Logger.error(sb.toString(), event.getThrowable());
                 } else {
-                    LOGGER.info(sb.toString());
+                    Logger.info(sb.toString());
                 }
             }
         }
@@ -189,10 +184,10 @@ public class BundleDeployerServiceImpl implements Closeable {
             if (originalBundle.getLocation().equals(bundleLocation)) {
                 try {
                     if (originalBundle.getState() == Bundle.ACTIVE) {
-                        LOGGER.info("Stopping already existing bundle " + originalBundle.toString());
+                        Logger.info("Stopping already existing bundle " + originalBundle.toString());
                         originalBundle.stop();
                     }
-                    LOGGER.info("Calling update on bundle " + originalBundle.toString());
+                    Logger.info("Calling update on bundle " + originalBundle.toString());
                     originalBundle.update();
                     return originalBundle;
                 } catch (BundleException e) {
@@ -201,10 +196,10 @@ public class BundleDeployerServiceImpl implements Closeable {
                 }
             } else {
                 try {
-                    LOGGER.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
+                    Logger.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
                             + originalBundle.getVersion().toString());
                     originalBundle.uninstall();
-                    LOGGER.info("Installing bundle from '" + bundleLocation.toString() + "'");
+                    Logger.info("Installing bundle from '" + bundleLocation.toString() + "'");
                     Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                     return installedBundle;
                 } catch (BundleException e) {
@@ -214,7 +209,7 @@ public class BundleDeployerServiceImpl implements Closeable {
             }
         } else {
             try {
-                LOGGER.info("Installing bundle from folder '" + bundleLocation + "'");
+                Logger.info("Installing bundle from folder '" + bundleLocation + "'");
                 Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
                 return installedBundle;
             } catch (BundleException e) {
@@ -228,6 +223,13 @@ public class BundleDeployerServiceImpl implements Closeable {
     public void deployBundles(List<File> fileObjects) {
         final AtomicBoolean refreshFinished = new AtomicBoolean(false);
 
+        // Refresh classes must be initialized first because they will be not available if the richconsole re-deploys
+        // itself
+        Lock refreshFinishLock = new ReentrantLock();
+        Condition refreshFinishCondition = refreshFinishLock.newCondition();
+        FrameworkListener refreshListener =
+                new RefreshListener(refreshFinished, refreshFinishLock, refreshFinishCondition);
+
         FrameworkWiring frameworkWiring =
                 (FrameworkWiring) systemBundleContext.getBundle().adapt(FrameworkWiring.class);
 
@@ -238,13 +240,13 @@ public class BundleDeployerServiceImpl implements Closeable {
             if (fileObject.isDirectory()) {
                 bundleLocation = new File(fileObject, "target/classes");
                 if (!bundleLocation.exists()) {
-                    LOGGER.warn("Hot deployment failed. There is no target/classes child folder found under "
+                    Logger.warn("Hot deployment failed. There is no target/classes child folder found under "
                             + fileObject.getPath());
                     return;
                 }
                 File manifestFile = new File(bundleLocation, "META-INF/MANIFEST.MF");
                 if (!manifestFile.exists()) {
-                    LOGGER.warn("Hot deployment failed. Manifest file could not be found: " + manifestFile.getPath());
+                    Logger.warn("Hot deployment failed. Manifest file could not be found: " + manifestFile.getPath());
                     return;
                 }
 
@@ -252,7 +254,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                     BundleData bundleData = BundleUtil.readBundleDataFromManifestFile(manifestFile);
                     installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
                 } catch (IOException e) {
-                    LOGGER.error("Could not deploy bundle from project location " + fileObject.toString(), e);
+                    Logger.error("Could not deploy bundle from project location " + fileObject.toString(), e);
                     return;
                 }
             } else {
@@ -264,14 +266,14 @@ public class BundleDeployerServiceImpl implements Closeable {
                     bundleLocation = fileObject;
                     installableBundleByLocation.put(BundleUtil.getBundleLocationByFile(bundleLocation), bundleData);
                 } catch (IOException e) {
-                    LOGGER.error("Unrecognized file type", e);
+                    Logger.error("Unrecognized file type", e);
                     return;
                 } finally {
                     if (jarFile != null) {
                         try {
                             jarFile.close();
                         } catch (IOException e) {
-                            LOGGER.error("Cannot close jar file: " + bundleLocation.getAbsolutePath(), e);
+                            Logger.error("Cannot close jar file: " + bundleLocation.getAbsolutePath(), e);
                         }
                     }
                 }
@@ -305,12 +307,8 @@ public class BundleDeployerServiceImpl implements Closeable {
             }
         }
 
-        LOGGER.info("Calling refresh on OSGi framework. All packages on uninstalled bundles should be re-wired");
+        Logger.info("Calling refresh on OSGi framework. All packages on uninstalled bundles should be re-wired");
 
-        Lock refreshFinishLock = new ReentrantLock();
-        Condition refreshFinishCondition = refreshFinishLock.newCondition();
-        FrameworkListener refreshListener =
-                new RefreshListener(refreshFinished, refreshFinishLock, refreshFinishCondition);
         frameworkWiring.refreshBundles(null, new FrameworkListener[] { refreshListener });
 
         refreshFinishLock.lock();
@@ -326,13 +324,15 @@ public class BundleDeployerServiceImpl implements Closeable {
         }
 
         if (lowestStartLevel != originalFrameworkStartLevel) {
+            Logger.info("Setting back startlevel");
             BundleUtil.setFrameworkStartLevel(frameworkStartLevel, originalFrameworkStartLevel);
         }
 
         for (Bundle bundle : installedBundles) {
             try {
-                if (bundle.getHeaders().get(Constants.FRAGMENT_HOST) != null) {
-                    LOGGER.info("Starting bundle " + bundle.toString());
+                String fragmentHostHeader = bundle.getHeaders().get(Constants.FRAGMENT_HOST);
+                if (fragmentHostHeader == null) {
+                    Logger.info("Starting bundle " + bundle.toString());
                     bundle.start();
                 }
             } catch (BundleException e) {
@@ -350,7 +350,6 @@ public class BundleDeployerServiceImpl implements Closeable {
             if (startLevel < lowestStartLevel) {
                 lowestStartLevel = startLevel;
             }
-
         }
         return lowestStartLevel;
     }

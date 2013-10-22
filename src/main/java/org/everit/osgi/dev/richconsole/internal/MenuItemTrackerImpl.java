@@ -82,7 +82,6 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
 
     @Override
     public MenuItemService addingService(ServiceReference<MenuItemService> reference) {
-        System.out.println("MENUITEMSERVICE caughed");
         final MenuItemService menuItemService = context.getService(reference);
         String label = menuItemService.getLabel();
         JMenuItem menuItem = new JMenuItem(label);
