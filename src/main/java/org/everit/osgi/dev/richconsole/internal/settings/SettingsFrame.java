@@ -100,6 +100,7 @@ public class SettingsFrame extends JFrame {
                 }
             }
         });
+        labelTextField.setText(configStore.getProperty(DEPLOYER_WINDOW_LABEL));
 
         JButton btnStore = new JButton("Apply");
         decorationPanel.add(btnStore);

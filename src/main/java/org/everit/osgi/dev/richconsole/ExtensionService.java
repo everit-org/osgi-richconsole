@@ -23,16 +23,33 @@ package org.everit.osgi.dev.richconsole;
 
 /**
  * In case someone wants to extend the richconsole with new functionality an OSGi service should be provided with this
- * interface. By clicking on the deployer window, a context menu will appear that will contain each MenuItem service.
+ * interface.
  */
-public interface MenuItemService {
+public interface ExtensionService {
 
     /**
-     * Providing the label that will appear on the menu item.
+     * Initializing the extension.
      * 
-     * @return The label that appears on the menu item.
+     * @param configStore
+     *            The current configuration
      */
-    String getLabel();
+    void init(ConfigStore configStore);
 
-    void itemFired(ConfigStore configStore);
+    /**
+     * Closing the extension. This is called normally when the richconsole bundle stops. Every resources should be
+     * released here.
+     */
+    void close();
+
+    /**
+     * Providing the label that will appear on the context menu.
+     * 
+     * @return The label that appears on the menu item or null if the extension does not appear in the context menu.
+     */
+    String getMenuItemLabel();
+
+    /**
+     * The menu item was fired.
+     */
+    void menuItemFired();
 }

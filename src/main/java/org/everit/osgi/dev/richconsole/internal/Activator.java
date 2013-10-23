@@ -24,8 +24,8 @@ package org.everit.osgi.dev.richconsole.internal;
 import java.awt.GraphicsEnvironment;
 import java.util.Hashtable;
 
-import org.everit.osgi.dev.richconsole.MenuItemService;
-import org.everit.osgi.dev.richconsole.internal.settings.SettingsMenuItemServiceImpl;
+import org.everit.osgi.dev.richconsole.ExtensionService;
+import org.everit.osgi.dev.richconsole.internal.settings.SettingsExtensionServiceImpl;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
@@ -36,9 +36,7 @@ public class Activator implements BundleActivator {
 
     private BundleDeployerServiceImpl bundleService;
 
-    private SettingsMenuItemServiceImpl settingsMenuItemService;
-
-    private ServiceRegistration<MenuItemService> settingsServiceRegistration;
+    private ServiceRegistration<ExtensionService> settingsExtensionServiceRegistration;
 
     @Override
     public void start(final BundleContext context) throws Exception {
@@ -50,21 +48,18 @@ public class Activator implements BundleActivator {
             bundleService = new BundleDeployerServiceImpl(context.getBundle());
             bundleManager = new BundleDeployerFrame(bundleService);
             bundleManager.start(context);
-            settingsMenuItemService = new SettingsMenuItemServiceImpl();
-            settingsServiceRegistration =
-                    context.registerService(MenuItemService.class, settingsMenuItemService,
+            ExtensionService settingsExtensionService = new SettingsExtensionServiceImpl();
+            settingsExtensionServiceRegistration =
+                    context.registerService(ExtensionService.class, settingsExtensionService,
                             new Hashtable<String, Object>());
         }
     }
 
     @Override
     public void stop(final BundleContext context) throws Exception {
-        if (settingsMenuItemService != null) {
-            settingsMenuItemService.close();
-        }
 
-        if (settingsServiceRegistration != null) {
-            settingsServiceRegistration.unregister();
+        if (settingsExtensionServiceRegistration != null) {
+            settingsExtensionServiceRegistration.unregister();
         }
 
         if (bundleManager != null) {

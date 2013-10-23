@@ -33,30 +33,31 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
-import org.everit.osgi.dev.richconsole.MenuItemService;
+import org.everit.osgi.dev.richconsole.ExtensionService;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
 import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
-public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemService, MenuItemService> {
+public class ExtensionTrackerImpl implements ServiceTrackerCustomizer<ExtensionService, ExtensionService> {
 
     private final BundleContext context;
 
     private final MainFrame mainFrame;
 
-    private Map<ServiceReference<MenuItemService>, JMenuItem> menuItemByService =
-            new HashMap<ServiceReference<MenuItemService>, JMenuItem>();
+    private Map<ServiceReference<ExtensionService>, JMenuItem> menuItemByService =
+            new HashMap<ServiceReference<ExtensionService>, JMenuItem>();
 
-    private ServiceTracker<MenuItemService, MenuItemService> menuItemServiceTracker;
+    private ServiceTracker<ExtensionService, ExtensionService> extensionServiceTracker;
 
     private final JPopupMenu popupMenu;
 
-    public MenuItemTrackerImpl(final MainFrame mainFrame, final JPanel origin, final BundleContext context) {
+    public ExtensionTrackerImpl(final MainFrame mainFrame, final JPanel origin, final BundleContext context) {
         this.mainFrame = mainFrame;
 
-        menuItemServiceTracker =
-                new ServiceTracker<MenuItemService, MenuItemService>(context, MenuItemService.class, this);
+        extensionServiceTracker =
+                new ServiceTracker<ExtensionService, ExtensionService>(context, ExtensionService.class,
+                        this);
         popupMenu = new JPopupMenu();
         origin.addMouseListener(new MouseAdapter() {
             @Override
@@ -69,30 +70,35 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
     }
 
     @Override
-    public MenuItemService addingService(final ServiceReference<MenuItemService> reference) {
-        final MenuItemService menuItemService = context.getService(reference);
-        String label = menuItemService.getLabel();
+    public ExtensionService addingService(final ServiceReference<ExtensionService> reference) {
+        final ExtensionService extensionService = context.getService(reference);
+        extensionService.init(mainFrame.getConfigStore());
+        String label = extensionService.getMenuItemLabel();
         JMenuItem menuItem = new JMenuItem(label);
 
         menuItem.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(final ActionEvent e) {
-                menuItemService.itemFired(mainFrame.getConfigStore());
+                extensionService.menuItemFired();
             }
         });
         popupMenu.add(menuItem);
         menuItemByService.put(reference, menuItem);
-        return menuItemService;
+        return extensionService;
     }
 
     @Override
-    public void modifiedService(final ServiceReference<MenuItemService> reference, final MenuItemService service) {
+    public void modifiedService(final ServiceReference<ExtensionService> reference,
+            final ExtensionService service) {
         // Do nothing
     }
 
     @Override
-    public void removedService(final ServiceReference<MenuItemService> reference, final MenuItemService service) {
+    public void removedService(final ServiceReference<ExtensionService> reference,
+            final ExtensionService service) {
+
+        service.close();
         JMenuItem menuItem = menuItemByService.remove(reference);
         popupMenu.remove(menuItem);
         context.ungetService(reference);
@@ -103,10 +109,10 @@ public class MenuItemTrackerImpl implements ServiceTrackerCustomizer<MenuItemSer
     }
 
     public void start() {
-        menuItemServiceTracker.open();
+        extensionServiceTracker.open();
     }
 
     public void stop() {
-        menuItemServiceTracker.close();
+        extensionServiceTracker.close();
     }
 }

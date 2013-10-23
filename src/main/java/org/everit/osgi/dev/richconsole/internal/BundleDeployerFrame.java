@@ -62,7 +62,7 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
 
     private ConfigStore configStore;
 
-    private MenuItemTrackerImpl menuItemTracker;
+    private ExtensionTrackerImpl menuItemTracker;
 
     private JFrame smallFrame;
 
@@ -212,7 +212,7 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
             Logger.error("Too many listeners during dropping to deployer window", e1);
         }
 
-        menuItemTracker = new MenuItemTrackerImpl(this, panel, context);
+        menuItemTracker = new ExtensionTrackerImpl(this, panel, context);
         menuItemTracker.start();
         smallFrame.setVisible(true);
     }

@@ -22,11 +22,18 @@ package org.everit.osgi.dev.richconsole.internal.settings;
  */
 
 import org.everit.osgi.dev.richconsole.ConfigStore;
-import org.everit.osgi.dev.richconsole.MenuItemService;
+import org.everit.osgi.dev.richconsole.ExtensionService;
 
-public class SettingsMenuItemServiceImpl implements MenuItemService {
+public class SettingsExtensionServiceImpl implements ExtensionService {
 
     private SettingsFrame settingsFrame;
+    
+    private ConfigStore configStore;
+    
+    @Override
+    public void init(ConfigStore configStore) {
+        this.configStore = configStore;
+    }
 
     public void close() {
         if (settingsFrame != null) {
@@ -36,11 +43,11 @@ public class SettingsMenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
-    public String getLabel() {
+    public String getMenuItemLabel() {
         return "Main options";
     }
 
-    private synchronized SettingsFrame getOrCreateSettingsFrame(final ConfigStore configStore) {
+    private synchronized SettingsFrame getOrCreateSettingsFrame() {
         if (settingsFrame == null) {
             settingsFrame = new SettingsFrame(configStore);
         }
@@ -48,8 +55,8 @@ public class SettingsMenuItemServiceImpl implements MenuItemService {
     }
 
     @Override
-    public void itemFired(final ConfigStore configStore) {
-        SettingsFrame tmpSettingsFrame = getOrCreateSettingsFrame(configStore);
+    public void menuItemFired() {
+        SettingsFrame tmpSettingsFrame = getOrCreateSettingsFrame();
         tmpSettingsFrame.setVisible(true);
         tmpSettingsFrame.requestFocus();
     }

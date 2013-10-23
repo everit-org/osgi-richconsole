@@ -31,7 +31,7 @@
     </parent>
     <groupId>org.everit.osgi.dev</groupId>
     <artifactId>org.everit.osgi.dev.richconsole</artifactId>
-    <version>1.1.0-alpha1</version>
+    <version>1.1.0-alpha2-SNAPSHOT</version>
     <packaging>bundle</packaging>
     <name>Rich client OSGi console</name>
     <description>A simple bundle that opens up a rich client application if the OSGi server is started in a graphical environment. This module may be very helpful during development.</description>
@@ -40,7 +40,7 @@
         <developerConnection>scm:git:https://github.com/everit-org/osgi-richconsole.git</developerConnection>
         <url>https://github.com/everit-org/osgi-richconsole</url>
     </scm>
-    <url>${everit.public.site.url}/osgi-richconsole</url>
+    <url>${everit.public.site.url}/mvnsites/osgi-richconsole</url>
     <distributionManagement>
         <site>
             <id>everit.org</id>
