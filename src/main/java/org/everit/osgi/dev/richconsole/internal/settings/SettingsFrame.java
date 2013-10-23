@@ -96,7 +96,6 @@ public class SettingsFrame extends JFrame {
             @Override
             public void propertyChanged(final String key, final String value) {
                 if (key.equals(DEPLOYER_WINDOW_LABEL)) {
-                    System.out.println("////// SETtING " + value);
                     labelTextField.setText(value);
                 }
             }
