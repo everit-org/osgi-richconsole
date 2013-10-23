@@ -31,6 +31,7 @@ public class SettingsMenuItemServiceImpl implements MenuItemService {
     public void close() {
         if (settingsFrame != null) {
             settingsFrame.dispose();
+            settingsFrame = null;
         }
     }
 
