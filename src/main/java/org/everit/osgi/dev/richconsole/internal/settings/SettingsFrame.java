@@ -39,6 +39,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
+import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
@@ -135,11 +136,13 @@ public class SettingsFrame extends JFrame {
         storePanel.add(settingsFilePathTextField, gbc_settingsFilePathTextField);
         settingsFilePathTextField.setColumns(18);
 
-        JLabel lblNewLabel_1 =
-                new JLabel(
-                        "<html>You can change the path of the settings file by setting the \"org.everit.osgi.dev.richconsole.SettingsFile\" system property.</html>");
+        JTextPane lblNewLabel_1 = new JTextPane();
+        lblNewLabel_1.setText("You can change the path of the settings file by setting the \""
+                + ConfigStore.SYSPROP_SETTINGS_FILE_PATH + "\" system property.");
+
         lblNewLabel_1.setFont(new Font("Dialog", Font.BOLD, 11));
-        lblNewLabel_1.setHorizontalAlignment(SwingConstants.LEFT);
+        lblNewLabel_1.setBackground(null);
+        lblNewLabel_1.setBorder(null);
         GridBagConstraints gbc_lblNewLabel_1 = new GridBagConstraints();
         gbc_lblNewLabel_1.insets = new Insets(0, 0, 5, 0);
         gbc_lblNewLabel_1.anchor = GridBagConstraints.NORTHWEST;
@@ -197,5 +200,4 @@ public class SettingsFrame extends JFrame {
             }
         });
     }
-
 }

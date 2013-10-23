@@ -23,7 +23,7 @@ package org.everit.osgi.dev.richconsole;
 
 public interface ConfigStore {
 
-    String SYSPROP_SETTINGS_FILE_PATH = "org.everit.osgi.dev.richconsole.SettingsFilePath";
+    String SYSPROP_SETTINGS_FILE_PATH = "org.everit.osgi.dev.richconsole.SettingsFile";
 
     void addPropertyChangeListener(ConfigPropertyChangeListener listener);
 
