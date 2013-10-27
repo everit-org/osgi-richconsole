@@ -26,15 +26,11 @@ import org.everit.osgi.dev.richconsole.ExtensionService;
 
 public class SettingsExtensionServiceImpl implements ExtensionService {
 
-    private SettingsFrame settingsFrame;
-    
     private ConfigStore configStore;
-    
-    @Override
-    public void init(ConfigStore configStore) {
-        this.configStore = configStore;
-    }
 
+    private SettingsFrame settingsFrame;
+
+    @Override
     public void close() {
         if (settingsFrame != null) {
             settingsFrame.dispose();
@@ -52,6 +48,11 @@ public class SettingsExtensionServiceImpl implements ExtensionService {
             settingsFrame = new SettingsFrame(configStore);
         }
         return settingsFrame;
+    }
+
+    @Override
+    public void init(final ConfigStore configStore) {
+        this.configStore = configStore;
     }
 
     @Override

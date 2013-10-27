@@ -28,14 +28,6 @@ package org.everit.osgi.dev.richconsole;
 public interface ExtensionService {
 
     /**
-     * Initializing the extension.
-     * 
-     * @param configStore
-     *            The current configuration
-     */
-    void init(ConfigStore configStore);
-
-    /**
      * Closing the extension. This is called normally when the richconsole bundle stops. Every resources should be
      * released here.
      */
@@ -47,6 +39,14 @@ public interface ExtensionService {
      * @return The label that appears on the menu item or null if the extension does not appear in the context menu.
      */
     String getMenuItemLabel();
+
+    /**
+     * Initializing the extension.
+     * 
+     * @param configStore
+     *            The current configuration
+     */
+    void init(ConfigStore configStore);
 
     /**
      * The menu item was fired.

@@ -106,7 +106,8 @@ public class BundleUtil {
                 int eventType = event.getType();
                 if ((eventType == FrameworkEvent.STARTLEVEL_CHANGED) || (eventType == FrameworkEvent.ERROR)) {
                     if (eventType == FrameworkEvent.ERROR) {
-                        Logger.error("Setting framework startlevel to " + startLevel + " finished with error: ", event.getThrowable());
+                        Logger.error("Setting framework startlevel to " + startLevel + " finished with error: ",
+                                event.getThrowable());
                     } else {
                         Logger.info("Setting framework startlevel to " + startLevel + " finished with success");
                     }

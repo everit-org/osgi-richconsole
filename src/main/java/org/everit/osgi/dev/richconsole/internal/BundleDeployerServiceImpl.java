@@ -269,7 +269,38 @@ public class BundleDeployerServiceImpl implements Closeable {
             }
         }
     }
-    
+
+    private Bundle getExistingBundleBySymbolicName(final String bundleLocation, final BundleData bundleData) {
+        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(bundleData.getSymbolicName());
+        Bundle selectedBundle = null;
+        if (existingBundleIds != null) {
+            if (existingBundleIds.size() == 1) {
+                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
+            }
+            Iterator<Long> iterator = existingBundleIds.iterator();
+            while (iterator.hasNext() && (selectedBundle == null)) {
+                Long existingBundleId = iterator.next();
+                Bundle bundle = systemBundleContext.getBundle(existingBundleId);
+                String existingBundleLocation = bundle.getLocation();
+
+                if (existingBundleLocation.equals(bundleLocation)) {
+                    selectedBundle = bundle;
+                }
+
+                if (selectedBundle == null) {
+                    String existingBundleVersion = bundle.getVersion().toString();
+                    if (existingBundleVersion.equals(bundleData.getVersion())) {
+                        selectedBundle = bundle;
+                    }
+                }
+            }
+            if ((selectedBundle == null) && (existingBundleIds.size() > 0)) {
+                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
+            }
+        }
+        return selectedBundle;
+    }
+
     public Map<String, BundleData> getInstallableBundles(final List<File> fileObjects) {
         Map<String, BundleData> installableBundleByLocation = new LinkedHashMap<String, BundleData>();
 
@@ -328,37 +359,6 @@ public class BundleDeployerServiceImpl implements Closeable {
             }
         }
         return installableBundleByLocation;
-    }
-
-    private Bundle getExistingBundleBySymbolicName(final String bundleLocation, final BundleData bundleData) {
-        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(bundleData.getSymbolicName());
-        Bundle selectedBundle = null;
-        if (existingBundleIds != null) {
-            if (existingBundleIds.size() == 1) {
-                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
-            }
-            Iterator<Long> iterator = existingBundleIds.iterator();
-            while (iterator.hasNext() && (selectedBundle == null)) {
-                Long existingBundleId = iterator.next();
-                Bundle bundle = systemBundleContext.getBundle(existingBundleId);
-                String existingBundleLocation = bundle.getLocation();
-
-                if (existingBundleLocation.equals(bundleLocation)) {
-                    selectedBundle = bundle;
-                }
-
-                if (selectedBundle == null) {
-                    String existingBundleVersion = bundle.getVersion().toString();
-                    if (existingBundleVersion.equals(bundleData.getVersion())) {
-                        selectedBundle = bundle;
-                    }
-                }
-            }
-            if ((selectedBundle == null) && (existingBundleIds.size() > 0)) {
-                selectedBundle = systemBundleContext.getBundle(existingBundleIds.get(0));
-            }
-        }
-        return selectedBundle;
     }
 
     private int getLowestStartLevel(final Collection<Bundle> bundles, final int frameworkStartLevel) {

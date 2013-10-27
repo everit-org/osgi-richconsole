@@ -43,12 +43,12 @@ public class ExtensionTrackerImpl implements ServiceTrackerCustomizer<ExtensionS
 
     private final BundleContext context;
 
+    private ServiceTracker<ExtensionService, ExtensionService> extensionServiceTracker;
+
     private final MainFrame mainFrame;
 
     private Map<ServiceReference<ExtensionService>, JMenuItem> menuItemByService =
             new HashMap<ServiceReference<ExtensionService>, JMenuItem>();
-
-    private ServiceTracker<ExtensionService, ExtensionService> extensionServiceTracker;
 
     private final JPopupMenu popupMenu;
 
@@ -56,8 +56,7 @@ public class ExtensionTrackerImpl implements ServiceTrackerCustomizer<ExtensionS
         this.mainFrame = mainFrame;
 
         extensionServiceTracker =
-                new ServiceTracker<ExtensionService, ExtensionService>(context, ExtensionService.class,
-                        this);
+                new ServiceTracker<ExtensionService, ExtensionService>(context, ExtensionService.class, this);
         popupMenu = new JPopupMenu();
         origin.addMouseListener(new MouseAdapter() {
             @Override
@@ -89,14 +88,12 @@ public class ExtensionTrackerImpl implements ServiceTrackerCustomizer<ExtensionS
     }
 
     @Override
-    public void modifiedService(final ServiceReference<ExtensionService> reference,
-            final ExtensionService service) {
+    public void modifiedService(final ServiceReference<ExtensionService> reference, final ExtensionService service) {
         // Do nothing
     }
 
     @Override
-    public void removedService(final ServiceReference<ExtensionService> reference,
-            final ExtensionService service) {
+    public void removedService(final ServiceReference<ExtensionService> reference, final ExtensionService service) {
 
         service.close();
         JMenuItem menuItem = menuItemByService.remove(reference);
