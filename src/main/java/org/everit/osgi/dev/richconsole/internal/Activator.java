@@ -24,8 +24,8 @@ package org.everit.osgi.dev.richconsole.internal;
 import java.awt.GraphicsEnvironment;
 import java.util.Hashtable;
 
-import org.everit.osgi.dev.richconsole.ExtensionService;
-import org.everit.osgi.dev.richconsole.internal.settings.SettingsExtensionServiceImpl;
+import org.everit.osgi.dev.richconsole.RichConsoleService;
+import org.everit.osgi.dev.richconsole.internal.settings.SettingsExtensionImpl;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
@@ -34,9 +34,11 @@ public class Activator implements BundleActivator {
 
     private BundleDeployerFrame bundleManager = null;
 
-    private BundleDeployerServiceImpl bundleService;
+    private ServiceRegistration<RichConsoleService> richConsoleSR;
 
-    private ServiceRegistration<ExtensionService> settingsExtensionServiceRegistration;
+    private BundleDeployerServiceImpl bundleService;
+    
+    private SettingsExtensionImpl settingsExtension;
 
     @Override
     public void start(final BundleContext context) throws Exception {
@@ -48,25 +50,34 @@ public class Activator implements BundleActivator {
             bundleService = new BundleDeployerServiceImpl(context.getBundle());
             bundleManager = new BundleDeployerFrame(bundleService);
             bundleManager.start(context);
-            ExtensionService settingsExtensionService = new SettingsExtensionServiceImpl();
-            settingsExtensionServiceRegistration =
-                    context.registerService(ExtensionService.class, settingsExtensionService,
-                            new Hashtable<String, Object>());
+
+            richConsoleSR =
+                    context.registerService(RichConsoleService.class, bundleManager, new Hashtable<String, Object>());
+
+            settingsExtension = new SettingsExtensionImpl();
+            settingsExtension.init(bundleManager);
         }
     }
 
     @Override
     public void stop(final BundleContext context) throws Exception {
-
-        if (settingsExtensionServiceRegistration != null) {
-            settingsExtensionServiceRegistration.unregister();
+        if (settingsExtension != null) {
+            settingsExtension.close();
+            settingsExtension = null;
+        }
+        
+        if (richConsoleSR != null) {
+            richConsoleSR.unregister();
+            richConsoleSR = null;
         }
 
         if (bundleManager != null) {
             bundleManager.close();
+            bundleManager = null;
         }
         if (bundleService != null) {
             bundleService.close();
+            bundleService = null;
         }
 
     }

@@ -21,41 +21,51 @@ package org.everit.osgi.dev.richconsole.internal.settings;
  * MA 02110-1301  USA
  */
 
-import org.everit.osgi.dev.richconsole.ConfigStore;
-import org.everit.osgi.dev.richconsole.ExtensionService;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
-public class SettingsExtensionServiceImpl implements ExtensionService {
+import javax.swing.JMenuItem;
 
-    private ConfigStore configStore;
+import org.everit.osgi.dev.richconsole.RichConsoleService;
+
+public class SettingsExtensionImpl {
+
+    private RichConsoleService richConsoleService;
 
     private SettingsFrame settingsFrame;
+    
+    private JMenuItem menuItem; 
 
-    @Override
     public void close() {
         if (settingsFrame != null) {
             settingsFrame.dispose();
             settingsFrame = null;
         }
-    }
-
-    @Override
-    public String getMenuItemLabel() {
-        return "Main options";
+        richConsoleService.removeMenuItemFromContextMenu(menuItem);
+        menuItem = null;
     }
 
     private synchronized SettingsFrame getOrCreateSettingsFrame() {
         if (settingsFrame == null) {
-            settingsFrame = new SettingsFrame(configStore);
+            settingsFrame = new SettingsFrame(richConsoleService.getConfigStore());
         }
         return settingsFrame;
     }
 
-    @Override
-    public void init(final ConfigStore configStore) {
-        this.configStore = configStore;
+    public void init(final RichConsoleService richConsoleService) {
+        this.richConsoleService = richConsoleService;
+        this.menuItem = new JMenuItem("Main settings");
+        menuItem.addActionListener(new ActionListener() {
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                menuItemFired();
+            }
+        });
+        richConsoleService.addMenuItemToContextMenu(this.menuItem);
+        
     }
 
-    @Override
     public void menuItemFired() {
         SettingsFrame tmpSettingsFrame = getOrCreateSettingsFrame();
         tmpSettingsFrame.setVisible(true);

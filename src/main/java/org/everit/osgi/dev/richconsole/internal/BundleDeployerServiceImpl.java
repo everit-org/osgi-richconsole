@@ -223,7 +223,7 @@ public class BundleDeployerServiceImpl implements Closeable {
 
         int lowestStartLevel = getLowestStartLevel(originalBundleByNewBundleData.values(), originalFrameworkStartLevel);
 
-        if (lowestStartLevel != originalFrameworkStartLevel) {
+        if (lowestStartLevel < originalFrameworkStartLevel) {
             BundleUtil.setFrameworkStartLevel(frameworkStartLevel, lowestStartLevel);
         }
         List<Bundle> installedBundles = new ArrayList<Bundle>();

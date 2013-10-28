@@ -36,7 +36,6 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -47,14 +46,17 @@ import java.util.TooManyListenersException;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 
 import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
 import org.everit.osgi.dev.richconsole.ConfigStore;
+import org.everit.osgi.dev.richconsole.RichConsoleService;
 import org.everit.osgi.dev.richconsole.internal.settings.SettingsFrame;
 import org.osgi.framework.BundleContext;
 
-public class BundleDeployerFrame implements MainFrame, Closeable {
+public class BundleDeployerFrame implements RichConsoleService {
 
     private static Point point = new Point();
 
@@ -62,17 +64,15 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
 
     private ConfigStore configStore;
 
-    private ExtensionTrackerImpl menuItemTracker;
-
     private JFrame smallFrame;
+    
+    private JPopupMenu jPopupMenu = new JPopupMenu();
 
     public BundleDeployerFrame(final BundleDeployerServiceImpl bundleServiceImpl) {
         this.bundleServiceImpl = bundleServiceImpl;
     }
 
-    @Override
     public void close() {
-        menuItemTracker.stop();
         smallFrame.dispose();
     }
 
@@ -157,6 +157,10 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
                 point.x = e.getXOnScreen() - (int) location.getX();
                 point.y = e.getYOnScreen() - (int) location.getY();
             }
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                jPopupMenu.show(e.getComponent(), e.getX(), e.getY());
+            }
         });
 
         panel.addMouseMotionListener(new MouseMotionAdapter() {
@@ -187,9 +191,14 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
 
                         try {
                             @SuppressWarnings("unchecked")
-                            List<File> transferDataList = (List<File>) transferable.getTransferData(selectedDataFlavor);
+                            final List<File> transferDataList =
+                                    (List<File>) transferable.getTransferData(selectedDataFlavor);
                             Logger.info("Analyzing files if they can be deployed: " + transferDataList.toString());
-                            bundleServiceImpl.deployBundles(transferDataList);
+                            new Thread(new Runnable() {
+                                public void run() {
+                                    bundleServiceImpl.deployBundles(transferDataList);
+                                };
+                            }).start();
                         } catch (UnsupportedFlavorException e) {
                             Logger.error("Unsupported drop flavor on Deployer window", e);
                         } catch (IOException e) {
@@ -204,7 +213,6 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
 
                 @Override
                 public void dropActionChanged(final DropTargetDragEvent dtde) {
-                    System.out.println("dropActionChanged: " + dtde.toString());
 
                 }
             });
@@ -212,8 +220,17 @@ public class BundleDeployerFrame implements MainFrame, Closeable {
             Logger.error("Too many listeners during dropping to deployer window", e1);
         }
 
-        menuItemTracker = new ExtensionTrackerImpl(this, panel, context);
-        menuItemTracker.start();
         smallFrame.setVisible(true);
+    }
+
+    @Override
+    public void addMenuItemToContextMenu(JMenuItem menuItem) {
+        jPopupMenu.add(menuItem);
+    }
+
+    @Override
+    public void removeMenuItemFromContextMenu(JMenuItem menuItem) {
+        jPopupMenu.remove(menuItem);
+        
     }
 }
