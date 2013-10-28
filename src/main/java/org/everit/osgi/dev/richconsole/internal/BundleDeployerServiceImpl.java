@@ -163,6 +163,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                         originalBundle.stop();
                     }
                     Logger.info("Calling update on bundle " + originalBundle.toString());
+                    
                     originalBundle.update();
                     return originalBundle;
                 } catch (BundleException e) {
@@ -172,9 +173,25 @@ public class BundleDeployerServiceImpl implements Closeable {
                 try {
                     Logger.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
                             + originalBundle.getVersion().toString());
+
+                    BundleStartLevel bundleStartLevel = originalBundle.adapt(BundleStartLevel.class);
+                    int originalBundleStartLevel = bundleStartLevel.getStartLevel();
+
+                    FrameworkStartLevel frameworkStartLevel =
+                            systemBundleContext.getBundle().adapt(FrameworkStartLevel.class);
+                    int initialBundleStartLevel = frameworkStartLevel.getInitialBundleStartLevel();
+                    if (initialBundleStartLevel != originalBundleStartLevel) {
+                        frameworkStartLevel.setInitialBundleStartLevel(originalBundleStartLevel);
+                    }
+
                     originalBundle.uninstall();
                     Logger.info("Installing bundle from '" + bundleLocation.toString() + "'");
                     Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
+
+                    if (initialBundleStartLevel != originalBundleStartLevel) {
+                        frameworkStartLevel.setInitialBundleStartLevel(initialBundleStartLevel);
+                    }
+
                     return installedBundle;
                 } catch (BundleException e) {
                     Logger.error("Error during deploying bundle: " + bundleLocation, e);
