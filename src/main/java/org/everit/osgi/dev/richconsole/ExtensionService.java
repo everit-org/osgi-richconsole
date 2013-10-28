@@ -23,13 +23,13 @@ package org.everit.osgi.dev.richconsole;
 
 /**
  * In case someone wants to extend the richconsole with new functionality an OSGi service should be provided with this
- * interface.
+ * interface. The service should be provided via a ServiceFactory as if there are more rich consoles (probably multiple
+ * versions) they will need a different instance.
  */
 public interface ExtensionService {
 
     /**
-     * Closing the extension. This is called normally when the richconsole bundle stops. Every resources should be
-     * released here.
+     * The richconsole frees up all the resources therefore the extension should, too.
      */
     void close();
 
