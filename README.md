@@ -102,15 +102,6 @@ that is useful. The following projects are under development:
    If we find an extension written by others we will list them here. 
 
 
-Where can I find the binaries?
-------------------------------
-
-You can find the binaries at [Everit public maven repository][4]
-
-The project is compiled by maven. Every information about the project
-is available at the [generated site][5].
-
-
 What about the security?
 ------------------------
 

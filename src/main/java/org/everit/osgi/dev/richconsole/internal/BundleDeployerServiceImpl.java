@@ -15,6 +15,7 @@
  * along with Everit - OSGi Rich Console.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.everit.osgi.dev.richconsole.internal;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -157,7 +158,7 @@ public class BundleDeployerServiceImpl implements Closeable {
                         originalBundle.stop();
                     }
                     Logger.info("Calling update on bundle " + originalBundle.toString());
-                    
+
                     originalBundle.update();
                     return originalBundle;
                 } catch (BundleException e) {
@@ -181,6 +182,8 @@ public class BundleDeployerServiceImpl implements Closeable {
                     originalBundle.uninstall();
                     Logger.info("Installing bundle from '" + bundleLocation.toString() + "'");
                     Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
+                    BundleStartLevel newBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                    newBundleStartLevel.setStartLevel(originalBundleStartLevel);
 
                     if (initialBundleStartLevel != originalBundleStartLevel) {
                         frameworkStartLevel.setInitialBundleStartLevel(initialBundleStartLevel);
@@ -193,8 +196,13 @@ public class BundleDeployerServiceImpl implements Closeable {
             }
         } else {
             try {
-                Logger.info("Installing bundle from folder '" + bundleLocation + "'");
+                FrameworkStartLevel frameworkStartLevel =
+                        systemBundleContext.getBundle().adapt(FrameworkStartLevel.class);
+                int startLevel = frameworkStartLevel.getStartLevel();
+                Logger.info("Installing new bundle from folder '" + bundleLocation + "' with startLevel " + startLevel);
                 Bundle installedBundle = systemBundleContext.installBundle(bundleLocation);
+                BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                bundleStartLevel.setStartLevel(startLevel);
                 return installedBundle;
             } catch (BundleException e) {
                 Logger.error("Error during deploying bundle: " + bundleLocation, e);

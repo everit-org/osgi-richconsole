@@ -65,6 +65,11 @@
     </license>
   </licenses>
 
+  <organization>
+    <name>Everit Kft.</name>
+    <url>http://www.everit.biz</url>
+  </organization>
+
   <build>
     <plugins>
       <plugin>
