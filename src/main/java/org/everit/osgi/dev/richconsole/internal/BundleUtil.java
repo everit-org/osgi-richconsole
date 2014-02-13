@@ -15,6 +15,7 @@
  * along with Everit - OSGi Rich Console.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.everit.osgi.dev.richconsole.internal;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -60,21 +61,22 @@ public class BundleUtil {
     }
 
     public static String getBundleLocationByFile(final File file) throws IOException {
-        return file.getCanonicalFile().toURI().toString();
+        return file.getAbsoluteFile().toURI().toString();
     }
 
-    public static BundleData readBundleDataFromManifest(final Manifest manifest) {
+    public static BundleData readBundleDataFromManifest(final File bundleLocationFile, final Manifest manifest) {
         Attributes mainAttributes = manifest.getMainAttributes();
         String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
         String version = mainAttributes.getValue("Bundle-Version");
-        return new BundleData(symbolicName, version);
+        return new BundleData(bundleLocationFile, symbolicName, version);
     }
 
-    public static BundleData readBundleDataFromManifestFile(final File manifestFile) throws IOException {
+    public static BundleData readBundleDataFromManifestFile(final File bundleLocationFile, final File manifestFile)
+            throws IOException {
         FileInputStream manifestIS = null;
         try {
             manifestIS = new FileInputStream(manifestFile);
-            return BundleUtil.readBundleDataFromManifest(new Manifest(manifestIS));
+            return BundleUtil.readBundleDataFromManifest(bundleLocationFile, new Manifest(manifestIS));
         } finally {
             if (manifestIS != null) {
                 try {

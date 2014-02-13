@@ -48,13 +48,14 @@ import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
 import org.everit.osgi.dev.richconsole.ConfigStore;
 import org.everit.osgi.dev.richconsole.RichConsoleService;
 import org.everit.osgi.dev.richconsole.internal.settings.SettingsFrame;
+import org.everit.osgi.dev.richconsole.internal.upgrade.UpgradeServiceImpl;
 import org.osgi.framework.BundleContext;
 
 public class BundleDeployerFrame implements RichConsoleService {
 
     private static Point point = new Point();
 
-    private BundleDeployerServiceImpl bundleServiceImpl;
+    private UpgradeServiceImpl bundleServiceImpl;
 
     private ConfigStore configStore;
 
@@ -62,7 +63,7 @@ public class BundleDeployerFrame implements RichConsoleService {
     
     private JPopupMenu jPopupMenu = new JPopupMenu();
 
-    public BundleDeployerFrame(final BundleDeployerServiceImpl bundleServiceImpl) {
+    public BundleDeployerFrame(final UpgradeServiceImpl bundleServiceImpl) {
         this.bundleServiceImpl = bundleServiceImpl;
     }
 

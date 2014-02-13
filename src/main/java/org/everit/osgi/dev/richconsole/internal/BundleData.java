@@ -15,7 +15,12 @@
  * along with Everit - OSGi Rich Console.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.everit.osgi.dev.richconsole.internal;
+
+import java.io.File;
+
 public class BundleData {
+
+    private File evaluatedLocationFile;
 
     private String symbolicName;
 
@@ -24,9 +29,14 @@ public class BundleData {
     public BundleData() {
     }
 
-    public BundleData(final String symbolicName, final String version) {
+    public BundleData(final File locationFile, final String symbolicName, final String version) {
         this.symbolicName = symbolicName;
         this.version = version;
+        this.evaluatedLocationFile = locationFile;
+    }
+
+    public File getEvaluatedLocationFile() {
+        return evaluatedLocationFile;
     }
 
     public String getSymbolicName() {
@@ -35,14 +45,6 @@ public class BundleData {
 
     public String getVersion() {
         return version;
-    }
-
-    public void setSymbolicName(final String symbolicName) {
-        this.symbolicName = symbolicName;
-    }
-
-    public void setVersion(final String version) {
-        this.version = version;
     }
 
 }

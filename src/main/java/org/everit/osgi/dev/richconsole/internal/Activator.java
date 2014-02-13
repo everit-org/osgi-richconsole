@@ -20,6 +20,7 @@ import java.util.Hashtable;
 
 import org.everit.osgi.dev.richconsole.RichConsoleService;
 import org.everit.osgi.dev.richconsole.internal.settings.SettingsExtensionImpl;
+import org.everit.osgi.dev.richconsole.internal.upgrade.UpgradeServiceImpl;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
@@ -30,7 +31,7 @@ public class Activator implements BundleActivator {
 
     private ServiceRegistration<RichConsoleService> richConsoleSR;
 
-    private BundleDeployerServiceImpl bundleService;
+    private UpgradeServiceImpl bundleService;
     
     private SettingsExtensionImpl settingsExtension;
 
@@ -41,7 +42,7 @@ public class Activator implements BundleActivator {
             return;
         }
         if (!GraphicsEnvironment.isHeadless()) {
-            bundleService = new BundleDeployerServiceImpl(context.getBundle());
+            bundleService = new UpgradeServiceImpl(context.getBundle());
             bundleManager = new BundleDeployerFrame(bundleService);
             bundleManager.start(context);
 
