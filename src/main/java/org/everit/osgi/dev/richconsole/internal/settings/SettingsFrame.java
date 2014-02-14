@@ -15,6 +15,7 @@
  * along with Everit - OSGi Rich Console.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.everit.osgi.dev.richconsole.internal.settings;
+
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;

@@ -33,6 +33,7 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
+import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.FrameworkListener;
 import org.osgi.framework.startlevel.BundleStartLevel;
 import org.osgi.framework.startlevel.FrameworkStartLevel;
@@ -53,6 +54,8 @@ public class UpgradeProcess {
     private final int originalFrameworkStartLevelValue;
 
     private final FrameworkRefreshListener refreshListener;
+
+    private boolean stateChanged = false;
 
     private final BundleContext systemBundleContext;
 
@@ -77,99 +80,11 @@ public class UpgradeProcess {
         currentFrameworkStartLevelValue = originalFrameworkStartLevelValue;
     }
 
-    /**
-     * Deploys a bundle.
-     * 
-     * @param bundleLocationFile
-     *            Location of a jar file or a maven project where target/classes contains every necessary entries.
-     * @param startBundle
-     *            Whether to try calling start on the installed bundle or not. If the bundle is a fragment bundle, start
-     *            will not be called.
-     * @param startLevel
-     *            The new start level of the bundle. If null, the startlevel of the original bundle will be used or the
-     *            startLevel of the framework when the process was started.
-     * @return The deployed bundle.
-     */
-    public synchronized Bundle deployBundle(final File bundleLocationFile, final boolean startBundle,
-            final Integer startLevel) {
-        Bundle installedBundle = null;
-        BundleData bundleData = getBundleData(bundleLocationFile);
-
-        String bundleBaseLocation;
-        try {
-            bundleBaseLocation = BundleUtil.getBundleLocationByFile(bundleData.getEvaluatedLocationFile());
-        } catch (IOException e) {
-            Logger.error("Could not convert bundle location to reference uri: " + bundleLocationFile, e);
-            return null;
-        }
-
-        Bundle originalBundle = bundleDeployerService.getExistingBundleBySymbolicName(bundleBaseLocation, bundleData);
-        if (originalBundle != null) {
-            bundlesToStart.remove(originalBundle);
-            if (originalBundle.getLocation().equals(bundleBaseLocation)) {
-                try {
-                    if (originalBundle.getState() == Bundle.ACTIVE) {
-                        Logger.info("Stopping already existing bundle " + originalBundle.toString());
-                        originalBundle.stop();
-                    }
-                    Logger.info("Calling update on bundle " + originalBundle.toString());
-
-                    originalBundle.update();
-                    installedBundle = originalBundle;
-                    BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
-                    if (startLevel != null && !startLevel.equals(bundleStartLevel.getStartLevel())) {
-                        bundleStartLevel.setStartLevel(startLevel);
-                    }
-                } catch (BundleException e) {
-                    Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
-                }
-            } else {
-                try {
-                    Logger.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
-                            + originalBundle.getVersion().toString());
-
-                    BundleStartLevel bundleStartLevel = originalBundle.adapt(BundleStartLevel.class);
-                    int originalBundleStartLevel = bundleStartLevel.getStartLevel();
-
-                    originalBundle.uninstall();
-                    Logger.info("Installing bundle from '" + bundleBaseLocation.toString() + "'");
-                    installedBundle = systemBundleContext.installBundle(bundleBaseLocation);
-                    BundleStartLevel newBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
-                    if (startLevel == null) {
-                        newBundleStartLevel.setStartLevel(originalBundleStartLevel);
-                    } else {
-                        newBundleStartLevel.setStartLevel(startLevel);
-                    }
-
-                } catch (BundleException e) {
-                    Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
-                }
-            }
-        } else {
-            try {
-                Integer startLevelToUse = startLevel;
-                if (startLevelToUse == null) {
-                    startLevelToUse = originalFrameworkStartLevelValue;
-                }
-                Logger.info("Installing new bundle from folder '" + bundleBaseLocation + "' with startLevel "
-                        + startLevelToUse);
-                installedBundle = systemBundleContext.installBundle(bundleBaseLocation);
-                BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
-                bundleStartLevel.setStartLevel(startLevelToUse);
-            } catch (BundleException e) {
-                Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
-            }
-        }
-        if (startBundle) {
-            String fragmentHostHeader = installedBundle.getHeaders().get(Constants.FRAGMENT_HOST);
-            if (fragmentHostHeader == null) {
-                bundlesToStart.add(installedBundle);
-            }
-        }
-        return installedBundle;
-    }
-
     public synchronized void finish() {
+        if (!stateChanged) {
+            bundleDeployerService.finishOngoingProcess();
+            return;
+        }
         Logger.info("Calling refresh on OSGi framework. All packages on uninstalled bundles should be re-wired");
 
         Lock refreshFinishLock = refreshListener.getRefreshFinishLock();
@@ -189,7 +104,7 @@ public class UpgradeProcess {
         }
 
         if (currentFrameworkStartLevelValue != originalFrameworkStartLevelValue) {
-            BundleUtil.setFrameworkStartLevel(frameworkStartLevel, originalFrameworkStartLevelValue);
+            setFrameworkStartLevel(originalFrameworkStartLevelValue);
         }
 
         for (Bundle bundle : bundlesToStart) {
@@ -258,5 +173,170 @@ public class UpgradeProcess {
             }
         }
         return null;
+    }
+
+    /**
+     * Deploys a bundle.
+     * 
+     * @param bundleLocationFile
+     *            Location of a jar file or a maven project where target/classes contains every necessary entries.
+     * @param startBundle
+     *            Whether to try calling start on the installed bundle or not. If the bundle is a fragment bundle, start
+     *            will not be called.
+     * @param startLevel
+     *            The new start level of the bundle. If null, the startlevel of the original bundle will be used or the
+     *            startLevel of the framework when the process was started.
+     * @return The deployed bundle.
+     */
+    public synchronized Bundle installBundle(final File bundleLocationFile, final boolean startBundle,
+            final Integer startLevel) {
+        stateChanged = true;
+        if (startLevel != null && startLevel < currentFrameworkStartLevelValue) {
+            setFrameworkStartLevel(startLevel);
+        }
+        Bundle installedBundle = null;
+        BundleData bundleData = getBundleData(bundleLocationFile);
+
+        String bundleBaseLocation;
+        try {
+            bundleBaseLocation = BundleUtil.getBundleLocationByFile(bundleData.getEvaluatedLocationFile());
+        } catch (IOException e) {
+            Logger.error("Could not convert bundle location to reference uri: " + bundleLocationFile, e);
+            return null;
+        }
+
+        Bundle originalBundle = bundleDeployerService.getExistingBundleBySymbolicName(bundleData.getSymbolicName(),
+                bundleData.getVersion(), bundleBaseLocation);
+        if (originalBundle != null) {
+            bundlesToStart.remove(originalBundle);
+
+            BundleStartLevel originalBundleStartLevel = originalBundle.adapt(BundleStartLevel.class);
+            int originalBundleStartLevelValue = originalBundleStartLevel.getStartLevel();
+            if (originalBundleStartLevelValue < currentFrameworkStartLevelValue) {
+                setFrameworkStartLevel(originalBundleStartLevelValue);
+            }
+
+            if (originalBundle.getLocation().equals(bundleBaseLocation)) {
+                try {
+                    if (originalBundle.getState() == Bundle.ACTIVE) {
+                        Logger.info("Stopping already existing bundle " + originalBundle.toString());
+                        originalBundle.stop();
+                    }
+                    Logger.info("Calling update on bundle " + originalBundle.toString());
+
+                    originalBundle.update();
+                    installedBundle = originalBundle;
+                    BundleStartLevel installedBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                    if (startLevel != null && !startLevel.equals(installedBundleStartLevel.getStartLevel())) {
+                        installedBundleStartLevel.setStartLevel(startLevel);
+                    }
+                } catch (BundleException e) {
+                    Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
+                }
+            } else {
+                try {
+                    Logger.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
+                            + originalBundle.getVersion().toString());
+
+                    originalBundle.uninstall();
+                    Logger.info("Installing bundle from '" + bundleBaseLocation.toString() + "'");
+                    installedBundle = systemBundleContext.installBundle(bundleBaseLocation);
+                    BundleStartLevel newBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                    if (startLevel == null) {
+                        newBundleStartLevel.setStartLevel(originalBundleStartLevelValue);
+                    } else {
+                        newBundleStartLevel.setStartLevel(startLevel);
+                    }
+
+                } catch (BundleException e) {
+                    Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
+                }
+            }
+        } else {
+            try {
+                Integer startLevelToUse = startLevel;
+                if (startLevelToUse == null) {
+                    startLevelToUse = originalFrameworkStartLevelValue;
+                }
+                Logger.info("Installing new bundle from folder '" + bundleBaseLocation + "' with startLevel "
+                        + startLevelToUse);
+                installedBundle = systemBundleContext.installBundle(bundleBaseLocation);
+                BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                bundleStartLevel.setStartLevel(startLevelToUse);
+            } catch (BundleException e) {
+                Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
+            }
+        }
+        if (startBundle) {
+            String fragmentHostHeader = installedBundle.getHeaders().get(Constants.FRAGMENT_HOST);
+            if (fragmentHostHeader == null) {
+                bundlesToStart.add(installedBundle);
+            }
+        }
+        return installedBundle;
+    }
+
+    public void setFrameworkStartLevel(final int startLevel) {
+        Logger.info("Setting framework startlevel to " + startLevel);
+        final AtomicBoolean startLevelReached = new AtomicBoolean(false);
+        final Lock lock = new ReentrantLock();
+        final Condition startLevelReachedCondition = lock.newCondition();
+
+        frameworkStartLevel.setStartLevel(startLevel, new FrameworkListener() {
+
+            @Override
+            public void frameworkEvent(final FrameworkEvent event) {
+                lock.lock();
+                int eventType = event.getType();
+                if ((eventType == FrameworkEvent.STARTLEVEL_CHANGED) || (eventType == FrameworkEvent.ERROR)) {
+                    if (eventType == FrameworkEvent.ERROR) {
+                        Logger.error("Setting framework startlevel to " + startLevel + " finished with error: ",
+                                event.getThrowable());
+                    } else {
+                        Logger.info("Setting framework startlevel to " + startLevel + " finished with success");
+                    }
+                    startLevelReached.set(true);
+                    startLevelReachedCondition.signal();
+                }
+                lock.unlock();
+            }
+        });
+        lock.lock();
+        try {
+            while (!startLevelReached.get()) {
+                startLevelReachedCondition.await();
+            }
+        } catch (InterruptedException e) {
+            Logger.error("Startlevel reaching wait interrupted", e);
+        } finally {
+            lock.unlock();
+        }
+        currentFrameworkStartLevelValue = startLevel;
+    }
+
+    /**
+     * Uninstalling an existing bundle
+     * 
+     * @param symbolicName
+     *            The symbolicName of the bundle
+     * @param version
+     *            The version of the bundle, optional. In case this parameter is null, the first bundle with the given
+     *            symbolic name will be uninstalled.
+     */
+    public void uninstallBundle(final String symbolicName, final String version) {
+        Bundle bundle = bundleDeployerService.getExistingBundleBySymbolicName(symbolicName, version, null);
+        if (bundle != null) {
+            stateChanged = true;
+            Logger.info("Uninstalling bundle: " + bundle);
+            BundleStartLevel bundleStartLevel = bundle.adapt(BundleStartLevel.class);
+            if (bundleStartLevel.getStartLevel() < currentFrameworkStartLevelValue) {
+                setFrameworkStartLevel(bundleStartLevel.getStartLevel());
+            }
+            try {
+                bundle.uninstall();
+            } catch (BundleException e) {
+                Logger.error("Error during uninstalling bundle: " + bundle.toString(), e);
+            }
+        }
     }
 }

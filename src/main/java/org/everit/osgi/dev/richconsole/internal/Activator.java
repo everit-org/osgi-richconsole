@@ -15,11 +15,14 @@
  * along with Everit - OSGi Rich Console.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.everit.osgi.dev.richconsole.internal;
+
 import java.awt.GraphicsEnvironment;
 import java.util.Hashtable;
 
+import org.everit.osgi.dev.richconsole.RichConsoleConstants;
 import org.everit.osgi.dev.richconsole.RichConsoleService;
 import org.everit.osgi.dev.richconsole.internal.settings.SettingsExtensionImpl;
+import org.everit.osgi.dev.richconsole.internal.upgrade.TCPServer;
 import org.everit.osgi.dev.richconsole.internal.upgrade.UpgradeServiceImpl;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
@@ -29,21 +32,38 @@ public class Activator implements BundleActivator {
 
     private BundleDeployerFrame bundleManager = null;
 
-    private ServiceRegistration<RichConsoleService> richConsoleSR;
+    private ServiceRegistration<RichConsoleService> richConsoleSR = null;
 
-    private UpgradeServiceImpl bundleService;
-    
-    private SettingsExtensionImpl settingsExtension;
+    private SettingsExtensionImpl settingsExtension = null;
+
+    private TCPServer tcpServer = null;
+
+    private UpgradeServiceImpl upgradeService = null;
+
+    private int getTCPPort() {
+        int tcpPort = 0;
+        String tcpPortEnv = System.getenv(RichConsoleConstants.ENV_EOSGI_UPGRADE_SERVICE_PORT);
+        if (tcpPortEnv != null) {
+            try {
+                tcpPort = Integer.valueOf(tcpPortEnv);
+            } catch (NumberFormatException e) {
+                Logger.error("Invalid TCP Port environment variable value: " + tcpPortEnv, e);
+                tcpPort = -1;
+            }
+        }
+        return tcpPort;
+    }
 
     @Override
     public void start(final BundleContext context) throws Exception {
-        String stopAfterTests = System.getenv("EOSGI_STOP_AFTER_TESTS");
+        String stopAfterTests = System.getenv(RichConsoleConstants.ENV_EOSGI_STOP_AFTER_TESTS);
         if (Boolean.valueOf(stopAfterTests)) {
             return;
         }
+        upgradeService = new UpgradeServiceImpl(context.getBundle());
+
         if (!GraphicsEnvironment.isHeadless()) {
-            bundleService = new UpgradeServiceImpl(context.getBundle());
-            bundleManager = new BundleDeployerFrame(bundleService);
+            bundleManager = new BundleDeployerFrame(upgradeService);
             bundleManager.start(context);
 
             richConsoleSR =
@@ -52,15 +72,29 @@ public class Activator implements BundleActivator {
             settingsExtension = new SettingsExtensionImpl();
             settingsExtension.init(bundleManager);
         }
+
+        int tcpPort = getTCPPort();
+        if (tcpPort >= 0) {
+            tcpServer = new TCPServer(upgradeService, tcpPort);
+            int localPort = tcpServer.getLocalPort();
+            Logger.info("Richconsole is listening on port " + localPort);
+            if (bundleManager != null) {
+                bundleManager.setTCPPort(localPort);
+            }
+        }
     }
 
     @Override
     public void stop(final BundleContext context) throws Exception {
+        if (tcpServer != null) {
+            tcpServer.close();
+        }
+
         if (settingsExtension != null) {
             settingsExtension.close();
             settingsExtension = null;
         }
-        
+
         if (richConsoleSR != null) {
             richConsoleSR.unregister();
             richConsoleSR = null;
@@ -70,9 +104,9 @@ public class Activator implements BundleActivator {
             bundleManager.close();
             bundleManager = null;
         }
-        if (bundleService != null) {
-            bundleService.close();
-            bundleService = null;
+        if (upgradeService != null) {
+            upgradeService.close();
+            upgradeService = null;
         }
 
     }

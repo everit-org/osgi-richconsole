@@ -15,9 +15,13 @@
  * along with Everit - OSGi Rich Console.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.everit.osgi.dev.richconsole.internal;
+
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.Image;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
@@ -46,6 +50,7 @@ import javax.swing.JPopupMenu;
 
 import org.everit.osgi.dev.richconsole.ConfigPropertyChangeListener;
 import org.everit.osgi.dev.richconsole.ConfigStore;
+import org.everit.osgi.dev.richconsole.RichConsoleConstants;
 import org.everit.osgi.dev.richconsole.RichConsoleService;
 import org.everit.osgi.dev.richconsole.internal.settings.SettingsFrame;
 import org.everit.osgi.dev.richconsole.internal.upgrade.UpgradeServiceImpl;
@@ -59,12 +64,19 @@ public class BundleDeployerFrame implements RichConsoleService {
 
     private ConfigStore configStore;
 
-    private JFrame smallFrame;
-    
     private JPopupMenu jPopupMenu = new JPopupMenu();
+
+    private JFrame smallFrame;
+
+    private JLabel tcpPortLabel = null;
 
     public BundleDeployerFrame(final UpgradeServiceImpl bundleServiceImpl) {
         this.bundleServiceImpl = bundleServiceImpl;
+    }
+
+    @Override
+    public void addMenuItemToContextMenu(final JMenuItem menuItem) {
+        jPopupMenu.add(menuItem);
     }
 
     public void close() {
@@ -74,6 +86,15 @@ public class BundleDeployerFrame implements RichConsoleService {
     @Override
     public ConfigStore getConfigStore() {
         return configStore;
+    }
+
+    @Override
+    public void removeMenuItemFromContextMenu(final JMenuItem menuItem) {
+        jPopupMenu.remove(menuItem);
+    }
+
+    void setTCPPort(final int localPort) {
+        tcpPortLabel.setText(String.valueOf(localPort));
     }
 
     public void start(final BundleContext context) {
@@ -96,7 +117,7 @@ public class BundleDeployerFrame implements RichConsoleService {
 
         smallFrame.setSize(panelWidth, panelHeight);
 
-        JPanel panel = new JPanel() {
+        JPanel panel = new JPanel(new GridBagLayout(), true) {
             /**
              * 
              */
@@ -114,7 +135,11 @@ public class BundleDeployerFrame implements RichConsoleService {
         smallFrame.add(panel);
 
         final JLabel jlabel = new JLabel();
-        panel.add(jlabel);
+        GridBagConstraints jLabelC = new GridBagConstraints();
+        jLabelC.gridx = 0;
+        jLabelC.gridy = 0;
+        jLabelC.insets = new Insets(-2, 40, 0, 10);
+        panel.add(jlabel, jLabelC);
         String label = configStore.getProperty(SettingsFrame.DEPLOYER_WINDOW_LABEL);
         if (label != null) {
             jlabel.setText(label);
@@ -128,6 +153,13 @@ public class BundleDeployerFrame implements RichConsoleService {
                 }
             }
         });
+
+        tcpPortLabel = new JLabel();
+        GridBagConstraints tcpPortLabelC = new GridBagConstraints();
+        tcpPortLabelC.gridx = 0;
+        tcpPortLabelC.gridy = 1;
+        tcpPortLabelC.insets = new Insets(14, 40, 0, 10);
+        panel.add(tcpPortLabel, tcpPortLabelC);
 
         String javaSpecVersion = System.getProperty("java.vm.specification.version");
 
@@ -147,14 +179,15 @@ public class BundleDeployerFrame implements RichConsoleService {
         //
         panel.addMouseListener(new MouseAdapter() {
             @Override
+            public void mouseClicked(final MouseEvent e) {
+                jPopupMenu.show(e.getComponent(), e.getX(), e.getY());
+            }
+
+            @Override
             public void mousePressed(final MouseEvent e) {
                 Point location = smallFrame.getLocation();
                 point.x = e.getXOnScreen() - (int) location.getX();
                 point.y = e.getYOnScreen() - (int) location.getY();
-            }
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                jPopupMenu.show(e.getComponent(), e.getX(), e.getY());
             }
         });
 
@@ -190,6 +223,7 @@ public class BundleDeployerFrame implements RichConsoleService {
                                     (List<File>) transferable.getTransferData(selectedDataFlavor);
                             Logger.info("Analyzing files if they can be deployed: " + transferDataList.toString());
                             new Thread(new Runnable() {
+                                @Override
                                 public void run() {
                                     bundleServiceImpl.deployBundles(transferDataList);
                                 };
@@ -215,17 +249,13 @@ public class BundleDeployerFrame implements RichConsoleService {
             Logger.error("Too many listeners during dropping to deployer window", e1);
         }
 
+        String deployerWindowLabel = configStore.getProperty(SettingsFrame.DEPLOYER_WINDOW_LABEL);
+        if (deployerWindowLabel == null) {
+            String environmentIdSysProp = System.getProperty(RichConsoleConstants.SYSPROP_ENVIRONMENT_ID);
+            if (environmentIdSysProp != null) {
+                configStore.setProperty(SettingsFrame.DEPLOYER_WINDOW_LABEL, environmentIdSysProp);
+            }
+        }
         smallFrame.setVisible(true);
-    }
-
-    @Override
-    public void addMenuItemToContextMenu(JMenuItem menuItem) {
-        jPopupMenu.add(menuItem);
-    }
-
-    @Override
-    public void removeMenuItemFromContextMenu(JMenuItem menuItem) {
-        jPopupMenu.remove(menuItem);
-        
     }
 }

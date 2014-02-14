@@ -20,17 +20,14 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.everit.osgi.dev.richconsole.internal.BundleData;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
-import org.osgi.framework.startlevel.BundleStartLevel;
 import org.osgi.util.tracker.BundleTracker;
 
 public class UpgradeServiceImpl implements Closeable {
@@ -100,7 +97,7 @@ public class UpgradeServiceImpl implements Closeable {
         UpgradeProcess deploymentProcess = newUpgradeProcess();
         try {
             for (File file : fileObjects) {
-                deploymentProcess.deployBundle(file, true, null);
+                deploymentProcess.installBundle(file, true, null);
             }
         } finally {
             deploymentProcess.finish();
@@ -114,8 +111,9 @@ public class UpgradeServiceImpl implements Closeable {
         }
     }
 
-    Bundle getExistingBundleBySymbolicName(final String bundleLocation, final BundleData bundleData) {
-        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(bundleData.getSymbolicName());
+    Bundle getExistingBundleBySymbolicName(final String symbolicName, final String version,
+            final String bundleLocation) {
+        List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(symbolicName);
         Bundle selectedBundle = null;
         if (existingBundleIds != null) {
             if (existingBundleIds.size() == 1) {
@@ -133,7 +131,7 @@ public class UpgradeServiceImpl implements Closeable {
 
                 if (selectedBundle == null) {
                     String existingBundleVersion = bundle.getVersion().toString();
-                    if (existingBundleVersion.equals(bundleData.getVersion())) {
+                    if (existingBundleVersion.equals(version)) {
                         selectedBundle = bundle;
                     }
                 }
@@ -143,18 +141,6 @@ public class UpgradeServiceImpl implements Closeable {
             }
         }
         return selectedBundle;
-    }
-
-    private int getLowestStartLevel(final Collection<Bundle> bundles, final int frameworkStartLevel) {
-        int lowestStartLevel = frameworkStartLevel;
-        for (Bundle bundle : bundles) {
-            BundleStartLevel bundleStartLevel = bundle.adapt(BundleStartLevel.class);
-            int startLevel = bundleStartLevel.getStartLevel();
-            if (startLevel < lowestStartLevel) {
-                lowestStartLevel = startLevel;
-            }
-        }
-        return lowestStartLevel;
     }
 
     public synchronized UpgradeProcess newUpgradeProcess() {

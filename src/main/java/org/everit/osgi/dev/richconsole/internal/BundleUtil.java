@@ -19,16 +19,10 @@ package org.everit.osgi.dev.richconsole.internal;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
 import org.osgi.framework.FrameworkEvent;
-import org.osgi.framework.FrameworkListener;
-import org.osgi.framework.startlevel.FrameworkStartLevel;
 
 public class BundleUtil {
 
@@ -61,12 +55,16 @@ public class BundleUtil {
     }
 
     public static String getBundleLocationByFile(final File file) throws IOException {
-        return file.getAbsoluteFile().toURI().toString();
+        return "reference:" + file.getAbsoluteFile().toURI().toString();
     }
 
     public static BundleData readBundleDataFromManifest(final File bundleLocationFile, final Manifest manifest) {
         Attributes mainAttributes = manifest.getMainAttributes();
         String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
+        int semicolonIndex = symbolicName.indexOf(';');
+        if (semicolonIndex > 0) {
+            symbolicName = symbolicName.substring(0, semicolonIndex);
+        }
         String version = mainAttributes.getValue("Bundle-Version");
         return new BundleData(bundleLocationFile, symbolicName, version);
     }
@@ -85,43 +83,6 @@ public class BundleUtil {
                     Logger.error("Could not close manifest file " + manifestFile.toString(), e);
                 }
             }
-        }
-    }
-
-    public static void setFrameworkStartLevel(final FrameworkStartLevel frameworkStartLevel, final int startLevel) {
-        Logger.info("Setting framework startlevel to " + startLevel);
-        final AtomicBoolean startLevelReached = new AtomicBoolean(false);
-        final Lock lock = new ReentrantLock();
-        final Condition startLevelReachedCondition = lock.newCondition();
-
-        frameworkStartLevel.setStartLevel(startLevel, new FrameworkListener() {
-
-            @Override
-            public void frameworkEvent(final FrameworkEvent event) {
-                lock.lock();
-                int eventType = event.getType();
-                if ((eventType == FrameworkEvent.STARTLEVEL_CHANGED) || (eventType == FrameworkEvent.ERROR)) {
-                    if (eventType == FrameworkEvent.ERROR) {
-                        Logger.error("Setting framework startlevel to " + startLevel + " finished with error: ",
-                                event.getThrowable());
-                    } else {
-                        Logger.info("Setting framework startlevel to " + startLevel + " finished with success");
-                    }
-                    startLevelReached.set(true);
-                    startLevelReachedCondition.signal();
-                }
-                lock.unlock();
-            }
-        });
-        lock.lock();
-        try {
-            while (!startLevelReached.get()) {
-                startLevelReachedCondition.await();
-            }
-        } catch (InterruptedException e) {
-            Logger.error("Startlevel reaching wait interrupted", e);
-        } finally {
-            lock.unlock();
         }
     }
 }
