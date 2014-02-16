@@ -17,7 +17,6 @@
 package org.everit.osgi.dev.richconsole.internal.upgrade;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -148,10 +147,7 @@ public class TCPServer implements AutoCloseable {
     private void handleDeployCommand(String command) {
         command = command.substring(RichConsoleConstants.TCPCOMMAND_DEPLOY_BUNDLE.length() + 1);
         String[] commandParts = command.split("\\@");
-        String fileURIString = commandParts[0];
-        if (fileURIString.startsWith("reference:")) {
-            fileURIString = fileURIString.substring("reference:".length());
-        }
+        String bundleLocationString = commandParts[0];
         Integer startLevel = null;
         boolean start = false;
         if (commandParts.length > 1) {
@@ -183,8 +179,8 @@ public class TCPServer implements AutoCloseable {
         }
 
         try {
-            URI fileURI = new URI(fileURIString);
-            ongoingProcess.installBundle(new File(fileURI), start, startLevel);
+            URI bundleLocation = new URI(bundleLocationString);
+            ongoingProcess.deployBundle(bundleLocation, start, startLevel);
         } catch (URISyntaxException e) {
             Logger.error("(Skipping) Could not process bundle install command: " + command, e);
         }

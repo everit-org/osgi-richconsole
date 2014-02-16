@@ -18,6 +18,7 @@ package org.everit.osgi.dev.richconsole.internal.upgrade;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.LinkedHashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -175,10 +176,24 @@ public class UpgradeProcess {
         return null;
     }
 
+    private File convertURIToFile(URI uri) {
+        String fullPath = uri.toString();
+        if (!fullPath.startsWith("reference:file:") && !fullPath.startsWith("file:")) {
+            throw new IllegalArgumentException(
+                    "Only uris starting with reference: and reference:file: are supported at the moment");
+        }
+        String path = uri.getSchemeSpecificPart();
+        if (path.startsWith("file:")) {
+            path = path.substring("file:".length());
+        }
+
+        return new File(path);
+    }
+
     /**
      * Deploys a bundle.
      * 
-     * @param bundleLocationFile
+     * @param bundleLocation
      *            Location of a jar file or a maven project where target/classes contains every necessary entries.
      * @param startBundle
      *            Whether to try calling start on the installed bundle or not. If the bundle is a fragment bundle, start
@@ -188,25 +203,27 @@ public class UpgradeProcess {
      *            startLevel of the framework when the process was started.
      * @return The deployed bundle.
      */
-    public synchronized Bundle installBundle(final File bundleLocationFile, final boolean startBundle,
+    public synchronized Bundle deployBundle(final URI bundleLocation, final boolean startBundle,
             final Integer startLevel) {
         stateChanged = true;
         if (startLevel != null && startLevel < currentFrameworkStartLevelValue) {
             setFrameworkStartLevel(startLevel);
         }
-        Bundle installedBundle = null;
-        BundleData bundleData = getBundleData(bundleLocationFile);
 
-        String bundleBaseLocation;
-        try {
-            bundleBaseLocation = BundleUtil.getBundleLocationByFile(bundleData.getEvaluatedLocationFile());
-        } catch (IOException e) {
-            Logger.error("Could not convert bundle location to reference uri: " + bundleLocationFile, e);
-            return null;
+        File bundleFile = convertURIToFile(bundleLocation);
+        String bundleLocationString = bundleLocation.toString();
+
+        Bundle installedBundle = null;
+
+        BundleData bundleData = getBundleData(bundleFile);
+
+        URI realBundleLocation = bundleLocation;
+        if (!bundleData.getEvaluatedLocationFile().getAbsoluteFile().equals(bundleFile.getAbsoluteFile())) {
+            realBundleLocation = bundleData.getEvaluatedLocationFile().toURI();
         }
 
         Bundle originalBundle = bundleDeployerService.getExistingBundleBySymbolicName(bundleData.getSymbolicName(),
-                bundleData.getVersion(), bundleBaseLocation);
+                bundleData.getVersion(), bundleLocation);
         if (originalBundle != null) {
             bundlesToStart.remove(originalBundle);
 
@@ -216,7 +233,7 @@ public class UpgradeProcess {
                 setFrameworkStartLevel(originalBundleStartLevelValue);
             }
 
-            if (originalBundle.getLocation().equals(bundleBaseLocation)) {
+            if (originalBundle.getLocation().equals(bundleLocation)) {
                 try {
                     if (originalBundle.getState() == Bundle.ACTIVE) {
                         Logger.info("Stopping already existing bundle " + originalBundle.toString());
@@ -231,7 +248,7 @@ public class UpgradeProcess {
                         installedBundleStartLevel.setStartLevel(startLevel);
                     }
                 } catch (BundleException e) {
-                    Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
+                    Logger.error("Error during deploying bundle: " + bundleLocationString, e);
                 }
             } else {
                 try {
@@ -239,8 +256,8 @@ public class UpgradeProcess {
                             + originalBundle.getVersion().toString());
 
                     originalBundle.uninstall();
-                    Logger.info("Installing bundle from '" + bundleBaseLocation.toString() + "'");
-                    installedBundle = systemBundleContext.installBundle(bundleBaseLocation);
+                    Logger.info("Installing bundle from '" + bundleLocationString + "'");
+                    installedBundle = systemBundleContext.installBundle(realBundleLocation.toString());
                     BundleStartLevel newBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
                     if (startLevel == null) {
                         newBundleStartLevel.setStartLevel(originalBundleStartLevelValue);
@@ -249,7 +266,7 @@ public class UpgradeProcess {
                     }
 
                 } catch (BundleException e) {
-                    Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
+                    Logger.error("Error during deploying bundle: " + bundleLocationString, e);
                 }
             }
         } else {
@@ -258,16 +275,16 @@ public class UpgradeProcess {
                 if (startLevelToUse == null) {
                     startLevelToUse = originalFrameworkStartLevelValue;
                 }
-                Logger.info("Installing new bundle from folder '" + bundleBaseLocation + "' with startLevel "
+                Logger.info("Installing new bundle from folder '" + bundleLocationString + "' with startLevel "
                         + startLevelToUse);
-                installedBundle = systemBundleContext.installBundle(bundleBaseLocation);
+                installedBundle = systemBundleContext.installBundle(realBundleLocation.toString());
                 BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
                 bundleStartLevel.setStartLevel(startLevelToUse);
             } catch (BundleException e) {
-                Logger.error("Error during deploying bundle: " + bundleBaseLocation, e);
+                Logger.error("Error during deploying bundle: " + bundleLocationString, e);
             }
         }
-        if (startBundle) {
+        if (startBundle && installedBundle != null) {
             String fragmentHostHeader = installedBundle.getHeaders().get(Constants.FRAGMENT_HOST);
             if (fragmentHostHeader == null) {
                 bundlesToStart.add(installedBundle);

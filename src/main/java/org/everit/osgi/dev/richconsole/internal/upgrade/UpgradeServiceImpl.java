@@ -19,12 +19,15 @@ package org.everit.osgi.dev.richconsole.internal.upgrade;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.everit.osgi.dev.richconsole.internal.Logger;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
@@ -97,7 +100,17 @@ public class UpgradeServiceImpl implements Closeable {
         UpgradeProcess deploymentProcess = newUpgradeProcess();
         try {
             for (File file : fileObjects) {
-                deploymentProcess.installBundle(file, true, null);
+                URI fileURI = file.toURI();
+                String fileURIString = fileURI.toString();
+                URI bundleLocation;
+                try {
+                    bundleLocation = new URI("reference:" + fileURIString);
+                    deploymentProcess.deployBundle(bundleLocation, true, null);
+                } catch (URISyntaxException e) {
+                    Logger.error("Could not install bundle from file " + file.getAbsolutePath()
+                            + " with location reference:" + fileURIString, e);
+                }
+
             }
         } finally {
             deploymentProcess.finish();
@@ -112,7 +125,7 @@ public class UpgradeServiceImpl implements Closeable {
     }
 
     Bundle getExistingBundleBySymbolicName(final String symbolicName, final String version,
-            final String bundleLocation) {
+            final URI bundleLocation) {
         List<Long> existingBundleIds = tracker.getBundleIdsBySymbolicName(symbolicName);
         Bundle selectedBundle = null;
         if (existingBundleIds != null) {

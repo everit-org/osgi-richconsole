@@ -20,11 +20,11 @@ import java.io.File;
 
 public class BundleData {
 
-    private File evaluatedLocationFile;
-
     private String symbolicName;
 
     private String version;
+
+    private File evaluatedLocationFile;
 
     public BundleData() {
     }
@@ -35,10 +35,6 @@ public class BundleData {
         this.evaluatedLocationFile = locationFile;
     }
 
-    public File getEvaluatedLocationFile() {
-        return evaluatedLocationFile;
-    }
-
     public String getSymbolicName() {
         return symbolicName;
     }
@@ -47,4 +43,7 @@ public class BundleData {
         return version;
     }
 
+    public File getEvaluatedLocationFile() {
+        return evaluatedLocationFile;
+    }
 }
