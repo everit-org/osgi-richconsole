@@ -75,17 +75,6 @@ For the deployment of the bundles, the context of the richconsole
 bundle is used.
 
 
-How can I extend the functionality of richconsole?
---------------------------------------------------
-
-When someone simply clicks on the deployer window, a pop-up menu appears.
-To make is sit into the menu as an item, someone has to implement the
-org.everit.osgi.dev.richconsole.MenuItem interface and register it as
-an OSGi service. This implementation of the service can catch the event
-when the menu item is selected and perform the required action. For 
-example, it can open up a new panel.
-
-
 How to write extensions?
 ------------------------
 
@@ -95,6 +84,7 @@ RichConsoleService OSGi service. For more information see the javadoc
 of the interface.
 
 What is the number on the deployer window?
+------------------------------------------
 
 After Richconsole bundle is activated a TCP server is started as well.
 The server accepts a couple of commands that makes it possible for external
