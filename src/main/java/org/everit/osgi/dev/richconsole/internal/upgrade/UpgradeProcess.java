@@ -19,6 +19,7 @@ package org.everit.osgi.dev.richconsole.internal.upgrade;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.LinkedHashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -79,6 +80,128 @@ public class UpgradeProcess {
         frameworkStartLevel = systemBundle.adapt(FrameworkStartLevel.class);
         originalFrameworkStartLevelValue = frameworkStartLevel.getStartLevel();
         currentFrameworkStartLevelValue = originalFrameworkStartLevelValue;
+    }
+
+    private File convertURIToFile(final URI uri) {
+        String fullPath = uri.toString();
+        if (!fullPath.startsWith("reference:file:") && !fullPath.startsWith("file:")) {
+            throw new IllegalArgumentException(
+                    "Only uris starting with reference: and reference:file: are supported at the moment");
+        }
+        String path = uri.getSchemeSpecificPart();
+        if (path.startsWith("file:")) {
+            path = path.substring("file:".length());
+        }
+
+        return new File(path);
+    }
+
+    /**
+     * Deploys a bundle.
+     * 
+     * @param bundleLocation
+     *            Location of a jar file or a maven project where target/classes contains every necessary entries.
+     * @param startBundle
+     *            Whether to try calling start on the installed bundle or not. If the bundle is a fragment bundle, start
+     *            will not be called.
+     * @param startLevel
+     *            The new start level of the bundle. If null, the startlevel of the original bundle will be used or the
+     *            startLevel of the framework when the process was started.
+     * @return The deployed bundle.
+     */
+    public synchronized Bundle deployBundle(final URI bundleLocation, final boolean startBundle,
+            final Integer startLevel) {
+        stateChanged = true;
+        if (startLevel != null && startLevel < currentFrameworkStartLevelValue) {
+            setFrameworkStartLevel(startLevel);
+        }
+
+        File bundleFile = convertURIToFile(bundleLocation);
+        String bundleLocationString = bundleLocation.toString();
+
+        Bundle installedBundle = null;
+
+        BundleData bundleData = getBundleData(bundleFile);
+
+        URI realBundleLocation = bundleLocation;
+        if (!bundleData.getEvaluatedLocationFile().getAbsoluteFile().equals(bundleFile.getAbsoluteFile())) {
+            String newRealBundleLocationStr = "reference:" + bundleData.getEvaluatedLocationFile().toURI().toString();
+            try {
+                realBundleLocation = new URI(newRealBundleLocationStr);
+            } catch (URISyntaxException e) {
+                Logger.error("Real bundle location canno be parsed as an URI: " + newRealBundleLocationStr, e);
+            }
+        }
+
+        Bundle originalBundle = bundleDeployerService.getExistingBundleBySymbolicName(bundleData.getSymbolicName(),
+                bundleData.getVersion(), bundleLocation);
+        if (originalBundle != null) {
+            bundlesToStart.remove(originalBundle);
+
+            BundleStartLevel originalBundleStartLevel = originalBundle.adapt(BundleStartLevel.class);
+            int originalBundleStartLevelValue = originalBundleStartLevel.getStartLevel();
+            if (originalBundleStartLevelValue < currentFrameworkStartLevelValue) {
+                setFrameworkStartLevel(originalBundleStartLevelValue);
+            }
+
+            if (originalBundle.getLocation().equals(bundleLocation)) {
+                try {
+                    if (originalBundle.getState() == Bundle.ACTIVE) {
+                        Logger.info("Stopping already existing bundle " + originalBundle.toString());
+                        originalBundle.stop();
+                    }
+                    Logger.info("Calling update on bundle " + originalBundle.toString());
+
+                    originalBundle.update();
+                    installedBundle = originalBundle;
+                    BundleStartLevel installedBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                    if (startLevel != null && !startLevel.equals(installedBundleStartLevel.getStartLevel())) {
+                        installedBundleStartLevel.setStartLevel(startLevel);
+                    }
+                } catch (BundleException e) {
+                    Logger.error("Error during deploying bundle: " + bundleLocationString, e);
+                }
+            } else {
+                try {
+                    Logger.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
+                            + originalBundle.getVersion().toString());
+
+                    originalBundle.uninstall();
+                    Logger.info("Installing bundle from '" + bundleLocationString + "'");
+                    installedBundle = systemBundleContext.installBundle(realBundleLocation.toString());
+                    BundleStartLevel newBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                    if (startLevel == null) {
+                        newBundleStartLevel.setStartLevel(originalBundleStartLevelValue);
+                    } else {
+                        newBundleStartLevel.setStartLevel(startLevel);
+                    }
+
+                } catch (BundleException e) {
+                    Logger.error("Error during deploying bundle: " + bundleLocationString, e);
+                }
+            }
+        } else {
+            try {
+                Integer startLevelToUse = startLevel;
+                if (startLevelToUse == null) {
+                    startLevelToUse = originalFrameworkStartLevelValue;
+                }
+                Logger.info("Installing new bundle from folder '" + bundleLocationString + "' with startLevel "
+                        + startLevelToUse);
+                installedBundle = systemBundleContext.installBundle(realBundleLocation.toString());
+                BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
+                bundleStartLevel.setStartLevel(startLevelToUse);
+            } catch (BundleException e) {
+                Logger.error("Error during deploying bundle: " + bundleLocationString, e);
+            }
+        }
+        if (startBundle && installedBundle != null) {
+            String fragmentHostHeader = installedBundle.getHeaders().get(Constants.FRAGMENT_HOST);
+            if (fragmentHostHeader == null) {
+                bundlesToStart.add(installedBundle);
+            }
+        }
+        return installedBundle;
     }
 
     public synchronized void finish() {
@@ -174,123 +297,6 @@ public class UpgradeProcess {
             }
         }
         return null;
-    }
-
-    private File convertURIToFile(URI uri) {
-        String fullPath = uri.toString();
-        if (!fullPath.startsWith("reference:file:") && !fullPath.startsWith("file:")) {
-            throw new IllegalArgumentException(
-                    "Only uris starting with reference: and reference:file: are supported at the moment");
-        }
-        String path = uri.getSchemeSpecificPart();
-        if (path.startsWith("file:")) {
-            path = path.substring("file:".length());
-        }
-
-        return new File(path);
-    }
-
-    /**
-     * Deploys a bundle.
-     * 
-     * @param bundleLocation
-     *            Location of a jar file or a maven project where target/classes contains every necessary entries.
-     * @param startBundle
-     *            Whether to try calling start on the installed bundle or not. If the bundle is a fragment bundle, start
-     *            will not be called.
-     * @param startLevel
-     *            The new start level of the bundle. If null, the startlevel of the original bundle will be used or the
-     *            startLevel of the framework when the process was started.
-     * @return The deployed bundle.
-     */
-    public synchronized Bundle deployBundle(final URI bundleLocation, final boolean startBundle,
-            final Integer startLevel) {
-        stateChanged = true;
-        if (startLevel != null && startLevel < currentFrameworkStartLevelValue) {
-            setFrameworkStartLevel(startLevel);
-        }
-
-        File bundleFile = convertURIToFile(bundleLocation);
-        String bundleLocationString = bundleLocation.toString();
-
-        Bundle installedBundle = null;
-
-        BundleData bundleData = getBundleData(bundleFile);
-
-        URI realBundleLocation = bundleLocation;
-        if (!bundleData.getEvaluatedLocationFile().getAbsoluteFile().equals(bundleFile.getAbsoluteFile())) {
-            realBundleLocation = bundleData.getEvaluatedLocationFile().toURI();
-        }
-
-        Bundle originalBundle = bundleDeployerService.getExistingBundleBySymbolicName(bundleData.getSymbolicName(),
-                bundleData.getVersion(), bundleLocation);
-        if (originalBundle != null) {
-            bundlesToStart.remove(originalBundle);
-
-            BundleStartLevel originalBundleStartLevel = originalBundle.adapt(BundleStartLevel.class);
-            int originalBundleStartLevelValue = originalBundleStartLevel.getStartLevel();
-            if (originalBundleStartLevelValue < currentFrameworkStartLevelValue) {
-                setFrameworkStartLevel(originalBundleStartLevelValue);
-            }
-
-            if (originalBundle.getLocation().equals(bundleLocation)) {
-                try {
-                    if (originalBundle.getState() == Bundle.ACTIVE) {
-                        Logger.info("Stopping already existing bundle " + originalBundle.toString());
-                        originalBundle.stop();
-                    }
-                    Logger.info("Calling update on bundle " + originalBundle.toString());
-
-                    originalBundle.update();
-                    installedBundle = originalBundle;
-                    BundleStartLevel installedBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
-                    if (startLevel != null && !startLevel.equals(installedBundleStartLevel.getStartLevel())) {
-                        installedBundleStartLevel.setStartLevel(startLevel);
-                    }
-                } catch (BundleException e) {
-                    Logger.error("Error during deploying bundle: " + bundleLocationString, e);
-                }
-            } else {
-                try {
-                    Logger.info("Uninstalling Bundle " + originalBundle.getSymbolicName() + ":"
-                            + originalBundle.getVersion().toString());
-
-                    originalBundle.uninstall();
-                    Logger.info("Installing bundle from '" + bundleLocationString + "'");
-                    installedBundle = systemBundleContext.installBundle(realBundleLocation.toString());
-                    BundleStartLevel newBundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
-                    if (startLevel == null) {
-                        newBundleStartLevel.setStartLevel(originalBundleStartLevelValue);
-                    } else {
-                        newBundleStartLevel.setStartLevel(startLevel);
-                    }
-
-                } catch (BundleException e) {
-                    Logger.error("Error during deploying bundle: " + bundleLocationString, e);
-                }
-            }
-        } else {
-            try {
-                Integer startLevelToUse = startLevel;
-                if (startLevelToUse == null) {
-                    startLevelToUse = originalFrameworkStartLevelValue;
-                }
-                Logger.info("Installing new bundle from folder '" + bundleLocationString + "' with startLevel "
-                        + startLevelToUse);
-                installedBundle = systemBundleContext.installBundle(realBundleLocation.toString());
-                BundleStartLevel bundleStartLevel = installedBundle.adapt(BundleStartLevel.class);
-                bundleStartLevel.setStartLevel(startLevelToUse);
-            } catch (BundleException e) {
-                Logger.error("Error during deploying bundle: " + bundleLocationString, e);
-            }
-        }
-        if (startBundle && installedBundle != null) {
-            String fragmentHostHeader = installedBundle.getHeaders().get(Constants.FRAGMENT_HOST);
-            if (fragmentHostHeader == null) {
-                bundlesToStart.add(installedBundle);
-            }
-        }
-        return installedBundle;
     }
 
     public void setFrameworkStartLevel(final int startLevel) {
