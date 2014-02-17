@@ -27,8 +27,10 @@ When the richconsole bundle starts, it checks whether the OSGi container
 was started in [headless][1] mode or not to find out if the environment 
 has a graphical interface.
 
-The richconsole will not appear if the OSGi container is started in the
-integration-test phase of the compilation by [eosgi-maven-plugin][2].
+The richconsole will not appear if the OSGi container is started during
+a compilation process. More specifically it will not appear if the
+EOSGI_STOP_AFTER_TESTS environment variable is set to "true". E.g. the
+integration-test goal of [eosgi-maven-plugin][2] uses this variable.
 
 
 How do I deploy a bundle?
@@ -84,22 +86,28 @@ when the menu item is selected and perform the required action. For
 example, it can open up a new panel.
 
 
-Are there any extensions that I can use now?
---------------------------------------------
+How to write extensions?
+------------------------
 
-Extensions are under development. They normally support a piece of useful 
-logic. The following projects are under development:
+It is possible to add menu items to the context menu that appears after
+simply clicking on the deployer window. An extension can use the
+RichConsoleService OSGi service. For more information see the javadoc
+of the interface.
 
- - __Bundle management panel:__ Opens up a panel where all bundles are
-   listed and can be removed or updated
- - __Test selection panel:__ This panel will be useful for programmers
-   who write many OSGi tests with the help of [everit-osgi-testrunner][3].
-   In this case, they can switch re-run tests or switch them off so that they
-   do not start after a re-deployment. In case someone writes many
-   tests in a bundle, it can be annoying when all these tests start after a
-   deployment.
- - For more extensions, google for expressions like "everit osgi richconsole".
-   If we find an extension written by others, we will list them here. 
+What is the number on the deployer window?
+
+After Richconsole bundle is activated a TCP server is started as well.
+The server accepts a couple of commands that makes it possible for external
+tools to deploy and uninstall bundles. E.g. The dist goal of
+[eosgi-maven-plugin][2] uses the TCP server to upgrade the bundles without
+the necessity of restarting the OSGi container. The number on the window is
+the port number on which the TCP server listens.
+
+If not specified otherwise, RichConsole binds the TCP server to a free port.
+A port can be specified with the EOSGI_UPGRADE_SERVICE_PORT environment
+variable.
+
+The available commands are listed in the RichConsoleConstants class.
 
 
 What about security?
@@ -109,18 +117,6 @@ RichConsole is designed to be used during development. It means that
 there is no security handling at all. Do not use it for production!
 
 
-How can I contribute?
----------------------
-
-In case you found a bug or need a new feature, create an issue in the Github
-issue tracker. If you have a question, it may mean that this documentation
-is not clear, so in this case too, please create an issue.
-
-In case you would like to let us know that you like our solutions, please
-mark the project with a star to encourage us. 
-
-
 [1]: http://docs.oracle.com/javase/6/docs/api/java/awt/GraphicsEnvironment.html#isHeadless()
 [2]: https://github.com/everit-org/eosgi-maven-plugin
 [3]: https://github.com/everit-org/osgi-testrunner
-[5]: http://everit.org/mvnsites/osgi-richconsole/
