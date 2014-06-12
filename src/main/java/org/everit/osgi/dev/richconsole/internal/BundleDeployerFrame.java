@@ -229,7 +229,7 @@ public class BundleDeployerFrame implements RichConsoleService {
                     DataFlavor selectedDataFlavor = selectDataFlavor(transferable.getTransferDataFlavors());
 
                     if (selectedDataFlavor != null) {
-
+                        dtde.acceptDrop(DnDConstants.ACTION_COPY_OR_MOVE);
                         try {
                             @SuppressWarnings("unchecked")
                             final List<File> transferDataList =
