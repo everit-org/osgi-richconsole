@@ -17,6 +17,7 @@
 package org.everit.osgi.dev.richconsole.internal;
 
 import java.awt.Color;
+import java.awt.EventQueue;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -60,11 +61,11 @@ public class BundleDeployerFrame implements RichConsoleService {
 
     private static Point point = new Point();
 
-    private UpgradeServiceImpl bundleServiceImpl;
+    private final UpgradeServiceImpl bundleServiceImpl;
 
     private ConfigStore configStore;
 
-    private JPopupMenu jPopupMenu = new JPopupMenu();
+    private final JPopupMenu jPopupMenu = new JPopupMenu();
 
     private JFrame smallFrame;
 
@@ -80,7 +81,13 @@ public class BundleDeployerFrame implements RichConsoleService {
     }
 
     public void close() {
-        smallFrame.dispose();
+        EventQueue.invokeLater(new Runnable() {
+
+            @Override
+            public void run() {
+                smallFrame.dispose();
+            }
+        });
     }
 
     @Override
@@ -119,7 +126,7 @@ public class BundleDeployerFrame implements RichConsoleService {
 
         JPanel panel = new JPanel(new GridBagLayout(), true) {
             /**
-             * 
+             *
              */
             private static final long serialVersionUID = 1L;
 
