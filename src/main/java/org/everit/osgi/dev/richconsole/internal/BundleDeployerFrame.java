@@ -214,23 +214,27 @@ public class BundleDeployerFrame implements RichConsoleService {
             dropTarget.addDropTargetListener(new DropTargetAdapter() {
 
                 @Override
+                public void dragEnter(DropTargetDragEvent dtde) {
+                    if (selectDataFlavor(dtde.getTransferable().getTransferDataFlavors()) == null) {
+                        dtde.rejectDrag();
+                    } else {
+                        dtde.acceptDrag(DnDConstants.ACTION_COPY_OR_MOVE);
+                    }
+                }
+
+                @Override
                 public void drop(final DropTargetDropEvent dtde) {
                     Logger.info("Drop event caught on OSGi deployer");
                     Transferable transferable = dtde.getTransferable();
-                    DataFlavor[] transferDataFlavors = transferable.getTransferDataFlavors();
-                    DataFlavor selectedDataFlavor = null;
-                    for (int i = 0, n = transferDataFlavors.length; (i < n) && (selectedDataFlavor == null); i++) {
-                        if (transferDataFlavors[i].isFlavorJavaFileListType()) {
-                            selectedDataFlavor = transferDataFlavors[i];
-                        }
-                    }
-                    dtde.acceptDrop(DnDConstants.ACTION_COPY_OR_MOVE);
+                    DataFlavor selectedDataFlavor = selectDataFlavor(transferable.getTransferDataFlavors());
+
                     if (selectedDataFlavor != null) {
 
                         try {
                             @SuppressWarnings("unchecked")
                             final List<File> transferDataList =
                                     (List<File>) transferable.getTransferData(selectedDataFlavor);
+                            dtde.dropComplete(true);
                             Logger.info("Analyzing files if they can be deployed: " + transferDataList.toString());
                             new Thread(new Runnable() {
                                 @Override
@@ -245,14 +249,25 @@ public class BundleDeployerFrame implements RichConsoleService {
                         }
 
                     } else {
-                        Logger.warn("No supported format found in dropped content. "
-                                + "Supported format is 'File List Type'");
+                        Logger.warn("Not supported format found in dropped content. "
+                                + "Supported format is 'File List Type'.");
+                        dtde.dropComplete(false);
                     }
                 }
 
                 @Override
                 public void dropActionChanged(final DropTargetDragEvent dtde) {
 
+                }
+
+                private DataFlavor selectDataFlavor(DataFlavor[] dataFlavors) {
+                    DataFlavor selectedDataFlavor = null;
+                    for (int i = 0, n = dataFlavors.length; (i < n) && (selectedDataFlavor == null); i++) {
+                        if (dataFlavors[i].isFlavorJavaFileListType()) {
+                            selectedDataFlavor = dataFlavors[i];
+                        }
+                    }
+                    return selectedDataFlavor;
                 }
             });
         } catch (TooManyListenersException e1) {
