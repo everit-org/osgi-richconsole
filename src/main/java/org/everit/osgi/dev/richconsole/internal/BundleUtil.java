@@ -61,11 +61,14 @@ public class BundleUtil {
     public static BundleData readBundleDataFromManifest(final File bundleLocationFile, final Manifest manifest) {
         Attributes mainAttributes = manifest.getMainAttributes();
         String symbolicName = mainAttributes.getValue("Bundle-SymbolicName");
-        int semicolonIndex = symbolicName.indexOf(';');
-        if (semicolonIndex > 0) {
-            symbolicName = symbolicName.substring(0, semicolonIndex);
+        if (symbolicName != null) {
+            int semicolonIndex = symbolicName.indexOf(';');
+            if (semicolonIndex > 0) {
+                symbolicName = symbolicName.substring(0, semicolonIndex);
+            }
         }
         String version = mainAttributes.getValue("Bundle-Version");
+
         return new BundleData(bundleLocationFile, symbolicName, version);
     }
 

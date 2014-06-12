@@ -28,6 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.zip.ZipException;
 
 import org.everit.osgi.dev.richconsole.internal.BundleData;
 import org.everit.osgi.dev.richconsole.internal.BundleUtil;
@@ -123,6 +124,9 @@ public class UpgradeProcess {
         Bundle installedBundle = null;
 
         BundleData bundleData = getBundleData(bundleFile);
+        if (bundleData == null) {
+            return null;
+        }
 
         URI realBundleLocation = bundleLocation;
         if (!bundleData.getEvaluatedLocationFile().getAbsoluteFile().equals(bundleFile.getAbsoluteFile())) {
@@ -265,11 +269,11 @@ public class UpgradeProcess {
 
             try {
                 BundleData bundleData = BundleUtil.readBundleDataFromManifestFile(bundleLocation, manifestFile);
-                if (bundleData.getSymbolicName() != null) {
+                if (bundleData.getSymbolicName() != null && bundleData.getVersion() != null) {
                     return bundleData;
                 } else {
-                    Logger.warn("Location is not recognized as a maven bundle project: "
-                            + bundleLocation.getAbsolutePath());
+                    Logger.warn("Location is not recognized as a maven bundle project."
+                            + " Required header(s) are missing from MANIFEST: " + bundleLocation.getAbsolutePath());
                 }
             } catch (IOException e) {
                 Logger.error("Could not deploy bundle from project location " + file.toString(), e);
@@ -281,14 +285,18 @@ public class UpgradeProcess {
                 jarFile = new JarFile(file);
                 Manifest manifest = jarFile.getManifest();
                 BundleData bundleData = BundleUtil.readBundleDataFromManifest(file, manifest);
-                if (bundleData.getSymbolicName() != null) {
+                if (bundleData.getSymbolicName() != null && bundleData.getVersion() != null) {
                     return bundleData;
                 } else {
-                    Logger.warn("Jar file is not recognized as a bundle: " + file.getAbsolutePath());
+                    Logger.warn("Location is not recognized as a maven bundle project."
+                            + " Required header(s) are missing from MANIFEST: " + file.getAbsolutePath());
                     return null;
                 }
+            } catch (ZipException e) {
+                Logger.error("Could not open jar file: " + file, null);
+                return null;
             } catch (IOException e) {
-                Logger.error("Unrecognized file type", e);
+                Logger.error("Could not open jar file: " + file, e);
                 return null;
             } finally {
                 if (jarFile != null) {
