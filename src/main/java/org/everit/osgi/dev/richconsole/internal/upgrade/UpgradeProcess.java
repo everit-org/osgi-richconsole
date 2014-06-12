@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -45,13 +46,13 @@ public class UpgradeProcess {
 
     private final UpgradeServiceImpl bundleDeployerService;
 
-    private LinkedHashSet<Bundle> bundlesToStart = new LinkedHashSet<Bundle>();
-
     private int currentFrameworkStartLevelValue;
 
     private final FrameworkStartLevel frameworkStartLevel;
 
     private final FrameworkWiring frameworkWiring;
+
+    private final LinkedHashSet<Bundle> installedBundlesWithStartFlag = new LinkedHashSet<Bundle>();
 
     private final int originalFrameworkStartLevelValue;
 
@@ -98,7 +99,7 @@ public class UpgradeProcess {
 
     /**
      * Deploys a bundle.
-     * 
+     *
      * @param bundleLocation
      *            Location of a jar file or a maven project where target/classes contains every necessary entries.
      * @param startBundle
@@ -136,7 +137,7 @@ public class UpgradeProcess {
         Bundle originalBundle = bundleDeployerService.getExistingBundleBySymbolicName(bundleData.getSymbolicName(),
                 bundleData.getVersion(), bundleLocation);
         if (originalBundle != null) {
-            bundlesToStart.remove(originalBundle);
+            installedBundlesWithStartFlag.remove(originalBundle);
 
             BundleStartLevel originalBundleStartLevel = originalBundle.adapt(BundleStartLevel.class);
             int originalBundleStartLevelValue = originalBundleStartLevel.getStartLevel();
@@ -196,10 +197,7 @@ public class UpgradeProcess {
             }
         }
         if (startBundle && installedBundle != null) {
-            String fragmentHostHeader = installedBundle.getHeaders().get(Constants.FRAGMENT_HOST);
-            if (fragmentHostHeader == null) {
-                bundlesToStart.add(installedBundle);
-            }
+            installedBundlesWithStartFlag.add(installedBundle);
         }
         return installedBundle;
     }
@@ -226,6 +224,8 @@ public class UpgradeProcess {
         } finally {
             refreshFinishLock.unlock();
         }
+        frameworkWiring.resolveBundles(null);
+        Collection<Bundle> bundlesToStart = frameworkWiring.getDependencyClosure(installedBundlesWithStartFlag);
 
         if (currentFrameworkStartLevelValue != originalFrameworkStartLevelValue) {
             setFrameworkStartLevel(originalFrameworkStartLevelValue);
@@ -234,12 +234,16 @@ public class UpgradeProcess {
         for (Bundle bundle : bundlesToStart) {
             try {
                 if (bundle.getState() != Bundle.ACTIVE) {
-                    bundle.start();
+                    String fragmentHostHeader = bundle.getHeaders().get(Constants.FRAGMENT_HOST);
+                    if (fragmentHostHeader == null) {
+                        bundle.start();
+                    }
                 }
             } catch (BundleException e) {
                 Logger.error("Error during starting bundle " + bundle.toString(), e);
             }
         }
+        installedBundlesWithStartFlag.clear();
 
         bundleDeployerService.finishOngoingProcess();
     }
@@ -339,7 +343,7 @@ public class UpgradeProcess {
 
     /**
      * Uninstalling an existing bundle
-     * 
+     *
      * @param symbolicName
      *            The symbolicName of the bundle
      * @param version

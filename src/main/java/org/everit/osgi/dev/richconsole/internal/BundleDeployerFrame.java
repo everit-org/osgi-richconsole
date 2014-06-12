@@ -65,6 +65,8 @@ public class BundleDeployerFrame implements RichConsoleService {
 
     private ConfigStore configStore;
 
+    private final Runnable disposerAction;
+
     private final JPopupMenu jPopupMenu = new JPopupMenu();
 
     private JFrame smallFrame;
@@ -73,6 +75,13 @@ public class BundleDeployerFrame implements RichConsoleService {
 
     public BundleDeployerFrame(final UpgradeServiceImpl bundleServiceImpl) {
         this.bundleServiceImpl = bundleServiceImpl;
+        disposerAction = new Runnable() {
+
+            @Override
+            public void run() {
+                smallFrame.dispose();
+            }
+        };
     }
 
     @Override
@@ -81,13 +90,7 @@ public class BundleDeployerFrame implements RichConsoleService {
     }
 
     public void close() {
-        EventQueue.invokeLater(new Runnable() {
-
-            @Override
-            public void run() {
-                smallFrame.dispose();
-            }
-        });
+        EventQueue.invokeLater(disposerAction);
     }
 
     @Override
