@@ -17,6 +17,7 @@
 package org.everit.osgi.dev.richconsole.internal.upgrade;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -36,7 +37,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.everit.osgi.dev.richconsole.RichConsoleConstants;
 import org.everit.osgi.dev.richconsole.internal.Logger;
 
-public class TCPServer implements AutoCloseable {
+public class TCPServer implements Closeable {
 
     private class ServerThread extends Thread {
         @Override
@@ -96,7 +97,7 @@ public class TCPServer implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         stoppingLock.lock();
         stopped.set(true);
         if (ongoingProcess == null) {
