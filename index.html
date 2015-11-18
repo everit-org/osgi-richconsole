@@ -1,0 +1,231 @@
+<!DOCTYPE HTML>
+<!--
+
+    Copyright (C) 2011 Everit Kft. (http://www.everit.org)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+            http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>OSGi Richconsole</title>
+<link rel="icon" type="image/ico" href="http://www.everit.org/fonts/favicon.ico">
+
+<!--    <link rel="stylesheet" type="text/css" href="common/css/base.css">-->
+<link href="http://www.everit.org/css/bootstrap.min.css" rel="stylesheet">
+<link href="http://www.everit.org/css/docs.min.css" rel="stylesheet">
+<link href="http://www.everit.org/css/everit.css" rel="stylesheet">
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push([ '_setAccount', 'UA-15041869-4' ]);
+  _gaq.push([ '_setDomainName', 'everit.org' ]);
+  _gaq.push([ '_trackPageview' ]);
+</script>
+</head>
+
+<body class="bs-docs-home" data-spy="scroll" data-target="#affix-nav">
+  <a class="sr-only" href="#content">Skip to main content</a>
+  <header class="navbar navbar-static-top bs-docs-nav" id="top" role="banner">
+    <div class="container">
+      <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse"
+          data-target=".bs-navbar-collapse">
+          <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span
+            class="icon-bar"></span> <span class="icon-bar"></span>
+        </button>
+        <a href="#" class="navbar-brand">Index</a>
+      </div>
+      <nav class="collapse navbar-collapse bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+          <li><a href="https://github.com/everit-org/osgi-richconsole" target="_blank">Source</a></li>
+          <li><a href="http://www.everit.org/" target="_blank">Community</a></li>
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+          <li><a href="http://www.everit.biz" target="_blank">Enterprise</a></li>
+          <li><a href="http://everitorg.wordpress.com/" target="_blank">Blog</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="bs-docs-masthead everit-header" id="content" role="main">
+    <div class="container">
+      <span class="bs-docs-booticon bs-docs-booticon-lg bs-docs-booticon-outline"> <img
+        class="logo" src="http://www.everit.org/fonts/sbz_e.svg" alt="E">
+      </span>
+      <p class="lead">OSGi Richconsole</p>
+    </div>
+  </div>
+  <div class="container">
+    <div class="col-md-10">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="introduction" class="bs-docs-featurette-title">Introduction</h2>
+        <p>The aim of the richconsole project is to speed up development and testing iterations.
+          It opens up an "always-on-top" small panel that has some nice features like deploying
+          bundles just by dropping jar files or the main folder of maven based projects on it.</p>
+        <p>Richconsole is as simple as possible. It does not have any special dependency.
+          However, it can be extended with extra functionalities by installing add-on bundles. This
+          means that you can use it in any OSGi container that supports OSGi spec 4.3.</p>
+        <p>There are tools and solutions that give you the same or better features, however,
+          they often need a servlet container, a TCP connection or they are wired to an IDE. With
+          richconsole these extras are not required.</p>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="when_does_the_window_appear" class="bs-docs-featurette-title">When does the
+          window appear?</h2>
+        <p>
+          When the richconsole bundle starts, it checks whether the OSGi container was started in <a
+            href="http://docs.oracle.com/javase/6/docs/api/java/awt/GraphicsEnvironment.html#isHeadless()">headless</a>
+          mode or not to find out if the environment has a graphical interface.
+        </p>
+        <p>
+          The richconsole will not appear if the OSGi container is started during a compilation
+          process. More specifically it will not appear if the EOSGI_STOP_AFTER_TESTS environment
+          variable is set to "true". E.g. the integration-test goal of <a
+            href="https://github.com/everit-org/eosgi-maven-plugin">eosgi-maven-plugin</a> uses this
+          variable.
+        </p>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="how_do_i_deploy_a_bundle" class="bs-docs-featurette-title">How do I deploy a
+          bundle?</h2>
+        <p>Drag a jar file or a maven project and drop it on the deployer window! The jar file
+          can be dragged from any tool that supports drag-and-drop like your favorite file manager
+          application or Eclipse navigation view.</p>
+        <p>In case you drop folders on the deployer window, the following will be checked:</p>
+        <ul>
+          <li>Does the folder have a target/classes subfolder?</li>
+          <li>Is there a MANIFEST.MF in the target/classes/META-INF folder?</li>
+          <li>Does the MANIFEST.MF contain Bundle-SymbolicName and Bundle-Version headers?</li>
+        </ul>
+        <p>You may have found out that during the deployment of a maven project, the
+          target/classes folder is being used. In case you use Eclipse with m2e plugin, your
+          target/classes will have an always up-to-date state. Not only the classes will be compiled
+          as soon as you save their source files but also MANIFEST.MF will alwazs be up-to-date.
+          Other development environments may support Maven and maven-bundle-plugin at this level but
+          they have not been tested.</p>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="how_is_a_bundle_deployed" class="bs-docs-featurette-title">How is a bundle
+          deployed?</h2>
+        <p>The expectation is that if you use richconsole, you actively develop a project. This
+          means that if you deploy a bundle, it will always have the same version. Therefore, if a
+          bundle already exists with the same Bundle-SymbolicName and same Bundle-Version, then it
+          will be:</p>
+        <ul>
+          <li>Updated if the location is the same as the place where you dragged the bundle
+            from</li>
+          <li>Deleted and reinstalled if the bundle has a new location. This can happen if you
+            started your OSGi console in the usual way and the bundle comes from a lib folder but
+            you re-deploy it from the maven project.</li>
+        </ul>
+        <p>For the deployment of the bundles, the context of the richconsole bundle is used.</p>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="how_to_write_extensions" class="bs-docs-featurette-title">How to write
+          extensions?</h2>
+        <p>It is possible to add menu items to the context menu that appears after simply
+          clicking on the deployer window. An extension can use the RichConsoleService OSGi service.
+          For more information see the javadoc of the interface.</p>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="what_is_the_number_on_the_deployer_window" class="bs-docs-featurette-title">What
+          is the number on the deployer window?</h2>
+        <p>
+          After Richconsole bundle is activated a TCP server is started as well. The server accepts
+          a couple of commands that makes it possible for external tools to deploy and uninstall
+          bundles. E.g. The dist goal of <a href="https://github.com/everit-org/eosgi-maven-plugin">eosgi-maven-plugin</a>
+          uses the TCP server to upgrade the bundles without the necessity of restarting the OSGi
+          container. The number on the window is the port number on which the TCP server listens.
+        </p>
+        <p>If not specified otherwise, RichConsole binds the TCP server to a free port. A port
+          can be specified with the EOSGI_UPGRADE_SERVICE_PORT environment variable.</p>
+        <p>The available commands are listed in the RichConsoleConstants class.</p>
+      </div>
+      <hr class="featurette-divider">
+
+      <div class="bs-docs-featurette cookbook">
+        <h2 id="what_about_security" class="bs-docs-featurette-title">What about security?</h2>
+        <p>RichConsole is designed to be used during development. It means that there is no
+          security handling at all. Do not use it for production!</p>
+      </div>
+      <hr class="featurette-divider">
+    </div>
+
+    <!--        Affix-->
+    <div class="col-md-2 col-sm-0 col-xs-0">
+      <nav id="affix-nav">
+        <ul class="nav nav-pills nav-stacked everit-affix" data-spy="affix" data-offset-top="350"
+          data-offset-bottom="140">
+          <li class="active"><a href="#introduction">Introduction</a></li>
+          <li><a href="#when_does_the_window_appear">When does the window appear?</a></li>
+          <li><a href="#how_do_i_deploy_a_bundle">How do I deploy a bundle?</a></li>
+          <li><a href="#how_is_a_bundle_deployed">How is a bundle deployed?</a></li>
+          <li><a href="#how_to_write_extensions">How to write extensions?</a></li>
+          <li><a href="#what_is_the_number_on_the_deployer_window">What is the number on
+              the deployer window?</a></li>
+          <li><a href="#what_about_security">What about security?</a></li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+
+  <div></div>
+  <footer class="bs-docs-footer" role="contentinfo">
+    <div class="container">
+      <div class="bs-docs-social">
+        <ul class="bs-docs-social-buttons">
+          <li class="follow-btn "><a href="https://twitter.com/EveritOrg"
+            class="twitter-follow-button" data-show-count="true">Follow @EveritOrg</a></li>
+          <li class="tweet-btn"><a href="https://twitter.com/share"
+            class="twitter-share-button" data-url="http://www.everit.org/">Tweet</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap core JavaScript
+================================================== -->
+  <!-- Placed at the end of the document so the pages load faster -->
+  <script src="http://www.everit.org/js/jquery-2.1.1.min.js"></script>
+  <script src="http://www.everit.org/js/bootstrap.min.js"></script>
+  <script src="http://www.everit.org/js/everit.js "></script>
+  <script type="text/javascript">
+      (function() {
+        var ga = document.createElement('script');
+        ga.type = 'text/javascript';
+        ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl'
+            : 'http://www')
+            + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  <script src="http://www.everit.org/js/prettify/run_prettify.js"></script>
+</body>
+
+</html>
