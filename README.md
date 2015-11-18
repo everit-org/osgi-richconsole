@@ -1,4 +1,4 @@
 osgi-richconsole
 ================
 
-Documentation: http://wwww.everit.org/osgi-richconsole
+Documentation: http://www.everit.org/osgi-richconsole
